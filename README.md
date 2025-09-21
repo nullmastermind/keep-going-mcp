@@ -1,3 +1,5 @@
+Name: keep-going confirmation
+
 ```bash
 npx keep-going-mcp
 ```
