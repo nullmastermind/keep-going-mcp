@@ -1,11 +1,46 @@
 {
   "name": "keep-going-mcp",
-  "module": "index.ts",
+  "version": "1.0.0",
+  "description": "A Model Context Protocol server that provides a keep-going confirmation tool for AI assistants",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
   "type": "module",
-  "private": true,
+  "bin": {
+    "keep-going-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist/**/*",
+    "README.md",
+    "package.json"
+  ],
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "assistant",
+    "confirmation",
+    "tool"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": ""
+  },
+  "bugs": {
+    "url": ""
+  },
+  "homepage": "",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build",
     "lint": "bunx biome check --write",
-    "typecheck": "bunx tsc --project tsconfig.json"
+    "typecheck": "bunx tsc --project tsconfig.json",
+    "start": "node dist/index.js",
+    "test": "npm run build && npm run start"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",

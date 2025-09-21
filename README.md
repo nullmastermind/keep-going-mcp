@@ -1,15 +1,9 @@
-# keep-going-mcp
-
-To install dependencies:
-
 ```bash
-bun install
+npx keep-going-mcp
 ```
 
-To run:
+Or
 
 ```bash
-bun run index.ts
+bunx keep-going-mcp
 ```
-
-This project was created using `bun init` in bun v1.2.10. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
