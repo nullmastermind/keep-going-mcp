@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "lint": "bunx biome check --write"
+    "lint": "bunx biome check --write",
+    "typecheck": "bunx tsc --project tsconfig.json"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",

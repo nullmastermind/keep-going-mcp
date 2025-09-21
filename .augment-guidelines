@@ -43,5 +43,5 @@ Apply these principles systematically:
 ## User Guidelines
 
 ## TypeScript Development Guidelines
-- ALWAYS run `bun run lint` at root directory after writing code to ensure code quality.
+- ALWAYS run `bun run lint` and `bun run typecheck` at root directory after writing code to ensure code quality.
 - Linter: biome. NEVER run --unsafe, manually fix all errors.
