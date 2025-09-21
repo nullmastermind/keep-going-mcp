@@ -13,7 +13,8 @@ server.registerTool(
   'confirm-keep-going',
   {
     title: 'Confirm Keep Going',
-    description: 'Ask the user if they want to continue the conversation when it becomes too long',
+    description:
+      'Ask the user if they want to continue when: the conversation becomes too long, processing large amounts of data or files, performing potentially time-consuming operations, making multiple sequential changes that could be batched, before proceeding with destructive or irreversible actions, or when encountering errors that require multiple retry attempts',
     inputSchema: {
       reason: z.string().describe('Reason for asking if the user wants to continue'),
     },
