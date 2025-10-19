@@ -1,11 +1,11 @@
-Name: keep-going confirmation
+Name: Auggie MCP
 
 ```bash
-npx keep-going-mcp
+npx auggie-mcp
 ```
 
 Or
 
 ```bash
-bunx keep-going-mcp
+bunx auggie-mcp
 ```
