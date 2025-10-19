@@ -24,12 +24,13 @@ server.registerTool(
     inputSchema: {
       command: z.string().describe('The custom command to execute'),
       user_request: z.string().describe('The user request to process'),
+      cwd: z.string().describe('The current project root to use as the process cwd'),
     },
   },
-  async ({ command, user_request }) => {
+  async ({command, user_request, cwd}) => {
     try {
-      const auggieCli = `auggie --print command ${command} "${user_request}" --compact`;
-      const { stdout, stderr } = await execAsync(auggieCli);
+      const auggieCli = `auggie --print command ${command} ${JSON.stringify(user_request)} --compact`;
+      const {stdout, stderr} = await execAsync(auggieCli, {cwd});
 
       if (stderr) {
         return {
