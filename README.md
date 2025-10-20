@@ -1,11 +1,11 @@
 Name: Auggie MCP
 
 ```bash
-npx auggie-mcp
+npx -y @dccxx/auggie-mcp
 ```
 
 Or
 
 ```bash
-bunx auggie-mcp
+bunx @dccxx/auggie-mcp
 ```
