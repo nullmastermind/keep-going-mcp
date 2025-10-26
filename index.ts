@@ -5,21 +5,6 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import TurndownService from 'turndown';
 import { z } from 'zod';
 
-interface SearchResult {
-  title: string;
-  url: string;
-  snippet: string;
-}
-
-interface SearchApiResponse {
-  organic_results?: Array<{
-    title?: string;
-    link?: string;
-    snippet?: string;
-  }>;
-  error?: string;
-}
-
 function getApiKeys(): string[] {
   const apiKeyEnv = process.env.SEARCHAPI_IO_API_KEY;
   if (!apiKeyEnv) {
@@ -31,7 +16,7 @@ function getApiKeys(): string[] {
     .filter((key) => key.length > 0);
 }
 
-async function searchWithRetry(query: string): Promise<SearchResult[]> {
+async function searchWithRetry(query: string): Promise<unknown> {
   const apiKeys = getApiKeys();
 
   if (apiKeys.length === 0) {
@@ -62,27 +47,14 @@ async function searchWithRetry(query: string): Promise<SearchResult[]> {
         continue;
       }
 
-      const data = (await response.json()) as SearchApiResponse;
+      const data = await response.json();
 
-      if (data.error) {
+      if (data && typeof data === 'object' && 'error' in data && data.error) {
         console.error(`API key returned error: ${apiKey.substring(0, 8)}... - ${data.error}`);
         continue;
       }
 
-      const results: SearchResult[] = [];
-      if (data.organic_results && Array.isArray(data.organic_results)) {
-        for (const result of data.organic_results) {
-          if (result.title && result.link) {
-            results.push({
-              title: result.title,
-              url: result.link,
-              snippet: result.snippet || '',
-            });
-          }
-        }
-      }
-
-      return results;
+      return data;
     } catch (error) {
       console.error(
         `API key encountered error: ${apiKey.substring(0, 8)}... - ${error instanceof Error ? error.message : String(error)}`,
@@ -130,19 +102,19 @@ server.registerTool(
   'web-search',
   {
     title: 'Web Search',
-    description: 'Search for content using a keyword query',
+    description:
+      'Search for content using AI-powered search that understands natural language queries. Does not require exact keyword matching - provide queries with sufficient context and the AI search engine will understand the intent. Natural language queries with context are preferred over strict keyword-based searches.',
     inputSchema: {
-      query: z.string().describe('The search query keyword'),
+      query: z
+        .string()
+        .describe(
+          'Natural language search query with context. The AI search engine will understand the intent and context without requiring exact keyword matching.',
+        ),
     },
   },
   async ({ query }) => {
     try {
-      const results = await searchWithRetry(query);
-
-      const response = {
-        query,
-        results,
-      };
+      const response = await searchWithRetry(query);
 
       return {
         content: [
