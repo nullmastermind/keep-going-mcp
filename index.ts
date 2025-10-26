@@ -6,34 +6,73 @@ import { z } from 'zod';
 
 // Create MCP server
 const server = new McpServer({
-  name: 'keep-going-mcp',
+  name: 'ai-search-mcp',
   version: '1.0.0',
 });
 
-// Register keep going confirmation tool
+// Register web-search tool
 server.registerTool(
-  'confirm-keep-going',
+  'web-search',
   {
-    title: 'Confirm Keep Going',
-    description:
-      'Ask the user if they want to continue when: the conversation becomes too long, processing large amounts of data or files, performing potentially time-consuming operations, making multiple sequential changes that could be batched, before proceeding with destructive or irreversible actions, or when encountering errors that require multiple retry attempts. Use this tool whenever you want to ask the user "Would you like me to keep going?"',
+    title: 'Web Search',
+    description: 'Search for content using a keyword query',
     inputSchema: {
-      reason: z.string().describe('Reason for asking if the user wants to continue'),
+      query: z.string().describe('The search query keyword'),
     },
   },
-  async ({ reason }) => {
-    let responseText = 'YES.';
-
-    // Add reason information
-    if (reason) {
-      responseText += ` (Reason: ${reason})`;
-    }
+  async ({ query }) => {
+    const mockResults = {
+      query,
+      results: [
+        {
+          title: 'Sample Result 1',
+          url: 'https://example.com/result1',
+          snippet: 'This is a sample search result snippet for demonstration purposes.',
+        },
+        {
+          title: 'Sample Result 2',
+          url: 'https://example.com/result2',
+          snippet: 'Another sample search result to show the data structure.',
+        },
+      ],
+    };
 
     return {
       content: [
         {
           type: 'text',
-          text: responseText,
+          text: JSON.stringify(mockResults, null, 2),
+        },
+      ],
+    };
+  },
+);
+
+// Register web-fetch tool
+server.registerTool(
+  'web-fetch',
+  {
+    title: 'Web Fetch',
+    description: 'Fetch content from a specific URL',
+    inputSchema: {
+      url: z.string().describe('The URL to fetch content from'),
+    },
+  },
+  async ({ url }) => {
+    const mockContent = {
+      url,
+      status: 200,
+      contentType: 'text/html',
+      content:
+        '<html><body><h1>Sample Page Content</h1><p>This is mock content fetched from the URL for demonstration purposes.</p></body></html>',
+      fetchedAt: new Date().toISOString(),
+    };
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(mockContent, null, 2),
         },
       ],
     };
@@ -44,7 +83,7 @@ server.registerTool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('Keep Going MCP server is running...');
+  console.log('AI Search MCP server is running...');
 }
 
 main().catch((error) => {

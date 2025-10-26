@@ -1,11 +1,11 @@
-Name: keep-going confirmation
+Name: AI Search MCP
 
 ```bash
-npx keep-going-mcp
+npx -y @dccxx/ai-search-mcp
 ```
 
 Or
 
 ```bash
-bunx keep-going-mcp
+bunx @dccxx/ai-search-mcp
 ```
