@@ -103,15 +103,18 @@ server.registerTool(
       const auggieCommand = commandParts.join(' ');
 
       // Create script content based on shell type
+      // Format command display: show 'no command' when command is 'do'
+      const commandDisplay = command === 'do' ? 'no command' : command;
+
       let scriptContent: string;
       if (isPS) {
         // PowerShell script with UTF-8 BOM for proper encoding
         // Change to the specified directory before running the command
-        scriptContent = `\uFEFFSet-Location -Path "${cwd}"\n${auggieCommand}`;
+        scriptContent = `\uFEFFSet-Location -Path "${cwd}"\nWrite-Host "Developer requirement: ${commandDisplay}: ${user_request}"\n---\n${auggieCommand}`;
       } else {
         // Unix shell script with shebang
         // Change to the specified directory before running the command
-        scriptContent = `#!/bin/bash\ncd "${cwd}"\n${auggieCommand}`;
+        scriptContent = `#!/bin/bash\ncd "${cwd}"\necho "Developer requirement: ${commandDisplay}: ${user_request}"\n---\n${auggieCommand}`;
       }
 
       // Write the script file with UTF-8 encoding
