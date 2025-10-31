@@ -6,17 +6,51 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
+// Helper function to detect if the current shell is PowerShell
+function isPowerShell(): boolean {
+  // Check if running in PowerShell by examining environment variables
+  // PSModulePath is set in PowerShell environments
+  if (process.env.PSModulePath) {
+    return true;
+  }
+
+  // Check SHELL environment variable (set in bash, sh, zsh, etc.)
+  const shell = process.env.SHELL || process.env.ComSpec || '';
+
+  // If SHELL contains bash, sh, zsh, etc., it's not PowerShell
+  if (
+    shell.toLowerCase().includes('bash') ||
+    shell.toLowerCase().includes('/sh') ||
+    shell.toLowerCase().includes('zsh')
+  ) {
+    return false;
+  }
+
+  // If ComSpec points to powershell or pwsh, it's PowerShell
+  if (shell.toLowerCase().includes('powershell') || shell.toLowerCase().includes('pwsh')) {
+    return true;
+  }
+
+  // Default to PowerShell only on Windows if no clear shell indicator
+  return process.platform === 'win32' && !process.env.SHELL;
+}
+
 // Helper function to escape shell arguments for safe command construction
-function escapeShellArg(arg: string): string {
-  // For cross-platform compatibility, use double quotes and escape special characters
-  // This works on Windows (PowerShell, CMD) and Unix-like systems (bash, sh)
-  return `"${arg.replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')}"`;
+function escapeShellArg(arg: string, isPS: boolean): string {
+  if (isPS) {
+    // PowerShell escaping: use single quotes to preserve UTF-8 and escape single quotes
+    return `'${arg.replace(/'/g, "''")}'`;
+  } else {
+    // Bash/sh escaping: use single quotes to preserve UTF-8 and escape single quotes
+    // Single quotes preserve all characters literally, including UTF-8
+    return `'${arg.replace(/'/g, "'\\''")}'`;
+  }
 }
 
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.0',
+  version: '1.0.1',
 });
 
 // Register Auggie tool
@@ -34,9 +68,9 @@ server.registerTool(
   },
   async ({ command, user_request, cwd }) => {
     try {
-      // Detect OS and determine script extension and execution command
-      const isWindows = process.platform === 'win32';
-      const scriptExtension = isWindows ? 'ps1' : 'sh';
+      // Detect actual shell being used (not just OS platform)
+      const isPS = isPowerShell();
+      const scriptExtension = isPS ? 'ps1' : 'sh';
       const scriptFileName = `auggie_shell.${scriptExtension}`;
       const scriptPath = join(cwd, scriptFileName);
 
@@ -45,36 +79,36 @@ server.registerTool(
         'auggie',
         '--print',
         'command',
-        escapeShellArg(command),
-        escapeShellArg(user_request),
+        escapeShellArg(command, isPS),
+        escapeShellArg(user_request, isPS),
         '--compact',
       ];
       const auggieCommand = commandParts.join(' ');
 
-      // Create script content based on OS
+      // Create script content based on shell type
       let scriptContent: string;
-      if (isWindows) {
-        // PowerShell script
-        scriptContent = auggieCommand;
+      if (isPS) {
+        // PowerShell script with UTF-8 BOM for proper encoding
+        scriptContent = `\uFEFF${auggieCommand}`;
       } else {
         // Unix shell script with shebang
-        scriptContent = `#!/bin/sh\n${auggieCommand}`;
+        scriptContent = `#!/bin/bash\n${auggieCommand}`;
       }
 
-      // Write the script file
+      // Write the script file with UTF-8 encoding
       await writeFile(scriptPath, scriptContent, 'utf-8');
 
       // Make the script executable on Unix systems
-      if (!isWindows) {
+      if (!isPS) {
         await chmod(scriptPath, 0o755);
       }
 
-      // Construct the execution command
+      // Construct the execution command based on actual shell
       let executionCommand: string;
-      if (isWindows) {
+      if (isPS) {
         executionCommand = `powershell -File ${scriptFileName}; Remove-Item ${scriptFileName}`;
       } else {
-        executionCommand = `sh ${scriptFileName} && rm ${scriptFileName}`;
+        executionCommand = `bash ${scriptFileName} && rm ${scriptFileName}`;
       }
 
       return {
