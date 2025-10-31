@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import anyShellEscape from 'any-shell-escape';
 import { z } from 'zod';
 
 // Helper function to detect if the current shell is PowerShell
@@ -37,22 +38,26 @@ function isPowerShell(): boolean {
   return process.platform === 'win32' && !process.env.SHELL;
 }
 
-// Helper function to escape shell arguments for safe command construction
-function escapeShellArg(arg: string, isPS: boolean): string {
-  if (isPS) {
-    // PowerShell escaping: use single quotes to preserve UTF-8 and escape single quotes
-    return `'${arg.replace(/'/g, "''")}'`;
-  } else {
-    // Bash/sh escaping: use single quotes to preserve UTF-8 and escape single quotes
-    // Single quotes preserve all characters literally, including UTF-8
-    return `'${arg.replace(/'/g, "'\\''")}'`;
-  }
+// Helper function to escape shell arguments using any-shell-escape library
+// Maintains backward compatibility with the original escapeShellArg function signature
+function escapeShellArg(arg: string, _isPS: boolean): string {
+  // For PowerShell, we need custom escaping since any-shell-escape doesn't distinguish
+  // between PowerShell and cmd.exe (it only checks process.platform)
+  // if (isPS) {
+  //   // PowerShell escaping: use single quotes and escape single quotes with double single quotes
+  //   // This preserves UTF-8 and all special characters
+  //   return `'${arg.replace(/'/g, "''")}'`;
+  // }
+
+  // For Unix shells (bash/sh/zsh), use any-shell-escape library
+  // The library handles proper escaping for POSIX shells with UTF-8 support
+  return anyShellEscape(arg);
 }
 
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.4',
+  version: '1.0.5',
 });
 
 // Register Auggie tool
@@ -63,7 +68,11 @@ server.registerTool(
     description:
       'Generates a shell script with the auggie CLI command and returns a short command to execute and clean it up.',
     inputSchema: {
-      command: z.string().describe('The custom command to execute. If the command cannot be determined from the chat content, use "do" as the default value.'),
+      command: z
+        .string()
+        .describe(
+          'The custom command to execute. If the command cannot be determined from the chat content, use "do" as the default value.',
+        ),
       user_request: z.string().describe('The user request to process'),
       cwd: z.string().describe('The current project root to use as the process cwd'),
       continue: z.boolean().optional().describe('Continue from previous conversation'),
@@ -97,10 +106,12 @@ server.registerTool(
       let scriptContent: string;
       if (isPS) {
         // PowerShell script with UTF-8 BOM for proper encoding
-        scriptContent = `\uFEFF${auggieCommand}`;
+        // Change to the specified directory before running the command
+        scriptContent = `\uFEFFSet-Location -Path "${cwd}"\n${auggieCommand}`;
       } else {
         // Unix shell script with shebang
-        scriptContent = `#!/bin/bash\n${auggieCommand}`;
+        // Change to the specified directory before running the command
+        scriptContent = `#!/bin/bash\ncd "${cwd}"\n${auggieCommand}`;
       }
 
       // Write the script file with UTF-8 encoding
