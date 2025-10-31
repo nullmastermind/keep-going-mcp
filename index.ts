@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
+import { randomBytes } from 'node:crypto';
 import { chmod, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -50,7 +52,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.1',
+  version: '1.0.2',
 });
 
 // Register Auggie tool
@@ -71,8 +73,11 @@ server.registerTool(
       // Detect actual shell being used (not just OS platform)
       const isPS = isPowerShell();
       const scriptExtension = isPS ? 'ps1' : 'sh';
-      const scriptFileName = `auggie_shell.${scriptExtension}`;
-      const scriptPath = join(cwd, scriptFileName);
+      // Generate unique script name using random bytes to prevent conflicts
+      const uniqueId = randomBytes(8).toString('hex');
+      const scriptFileName = `auggie_shell_${uniqueId}.${scriptExtension}`;
+      // Create script in system temp directory instead of cwd
+      const scriptPath = join(tmpdir(), scriptFileName);
 
       // Construct the auggie command with properly escaped arguments
       const commandParts = [
@@ -104,11 +109,12 @@ server.registerTool(
       }
 
       // Construct the execution command based on actual shell
+      // No deletion needed - temp files can remain in temp directory
       let executionCommand: string;
       if (isPS) {
-        executionCommand = `powershell -File ${scriptFileName}; Remove-Item ${scriptFileName}`;
+        executionCommand = `powershell -File "${scriptPath}"`;
       } else {
-        executionCommand = `bash ${scriptFileName} && rm ${scriptFileName}`;
+        executionCommand = `bash "${scriptPath}"`;
       }
 
       return {
