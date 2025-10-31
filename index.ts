@@ -52,7 +52,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.2',
+  version: '1.0.3',
 });
 
 // Register Auggie tool
@@ -66,9 +66,10 @@ server.registerTool(
       command: z.string().describe('The custom command to execute'),
       user_request: z.string().describe('The user request to process'),
       cwd: z.string().describe('The current project root to use as the process cwd'),
+      continue: z.boolean().optional().describe('Continue from previous conversation'),
     },
   },
-  async ({ command, user_request, cwd }) => {
+  async ({ command, user_request, cwd, continue: continueFlag }) => {
     try {
       // Detect actual shell being used (not just OS platform)
       const isPS = isPowerShell();
@@ -88,6 +89,9 @@ server.registerTool(
         escapeShellArg(user_request, isPS),
         '--compact',
       ];
+      if (continueFlag) {
+        commandParts.push('--continue');
+      }
       const auggieCommand = commandParts.join(' ');
 
       // Create script content based on shell type
