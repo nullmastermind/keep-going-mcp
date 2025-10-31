@@ -58,7 +58,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.11',
+  version: '1.0.12',
 });
 
 // Register Auggie tool
@@ -84,11 +84,22 @@ server.registerTool(
       // Detect actual shell being used (not just OS platform)
       const isPS = isPowerShell();
       const scriptExtension = isPS ? 'ps1' : 'sh';
-      // Generate unique script name using random bytes to prevent conflicts
-      const uniqueId = randomBytes(8).toString('hex');
-      const scriptFileName = `auggie_shell_${uniqueId}.${scriptExtension}`;
-      // Create script in system temp directory instead of cwd
-      const scriptPath = join(tmpdir(), scriptFileName);
+
+      // Check if ALLOW_CWD_SHELL environment variable is set to "true"
+      const allowCwdShell = process.env.ALLOW_CWD_SHELL === 'true';
+
+      let scriptPath: string;
+      if (allowCwdShell) {
+        // Create script in current working directory with simple filename
+        const scriptFileName = `auggie_shell.${scriptExtension}`;
+        scriptPath = join(cwd, scriptFileName);
+      } else {
+        // Generate unique script name using random bytes to prevent conflicts
+        const uniqueId = randomBytes(8).toString('hex');
+        const scriptFileName = `auggie_shell_${uniqueId}.${scriptExtension}`;
+        // Create script in system temp directory instead of cwd
+        scriptPath = join(tmpdir(), scriptFileName);
+      }
 
       // Construct the auggie command with properly escaped arguments
       const commandParts = [

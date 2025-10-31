@@ -32,3 +32,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Finder (MacOS) folder config
 .DS_Store
+
+auggie_shell.ps1
+auggie_shell.sh
