@@ -1,12 +1,15 @@
 #!/usr/bin/env node
 
-import { exec } from 'node:child_process';
-import { promisify } from 'node:util';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
-const execAsync = promisify(exec);
+// Helper function to escape shell arguments for safe command construction
+function escapeShellArg(arg: string): string {
+  // For cross-platform compatibility, use double quotes and escape special characters
+  // This works on Windows (PowerShell, CMD) and Unix-like systems (bash, sh)
+  return `"${arg.replace(/"/g, '\\"').replace(/\$/g, '\\$').replace(/`/g, '\\`')}"`;
+}
 
 // Create MCP server
 const server = new McpServer({
@@ -20,50 +23,33 @@ server.registerTool(
   {
     title: 'Auggie',
     description:
-      'The Auggie tool allows running custom commands to call an AI model that works with commands and user requests.',
+      'Returns the auggie CLI command as text for the client to review and execute. Does not execute the command directly.',
     inputSchema: {
       command: z.string().describe('The custom command to execute'),
       user_request: z.string().describe('The user request to process'),
       cwd: z.string().describe('The current project root to use as the process cwd'),
     },
   },
-  async ({command, user_request, cwd}) => {
-    try {
-      const auggieCli = `auggie --print command ${command} ${JSON.stringify(user_request)} --compact`;
-      const {stdout, stderr} = await execAsync(auggieCli, {cwd});
+  async ({ command, user_request, cwd }) => {
+    // Construct the auggie command with properly escaped arguments
+    const commandParts = [
+      'auggie',
+      '--print',
+      'command',
+      escapeShellArg(command),
+      escapeShellArg(user_request),
+      '--compact',
+    ];
+    const commandString = commandParts.join(' ');
 
-      if (stderr) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `Error: ${stderr}`,
-            },
-          ],
-          isError: true,
-        };
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: stdout,
-          },
-        ],
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Failed to execute auggie command: ${errorMessage}`,
-          },
-        ],
-        isError: true,
-      };
-    }
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Command to execute in directory "${cwd}":\n\n${commandString}`,
+        },
+      ],
+    };
   },
 );
 
