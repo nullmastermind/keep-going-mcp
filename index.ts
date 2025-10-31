@@ -59,7 +59,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.12',
+  version: '1.0.13',
 });
 
 // Register Auggie tool
