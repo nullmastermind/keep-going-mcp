@@ -51,7 +51,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
-    "any-shell-escape": "^0.1.1",
+    "shescape": "^2.1.6",
     "zod": "^3.23.8"
   }
 }

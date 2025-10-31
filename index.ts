@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import anyShellEscape from 'any-shell-escape';
+import { Shescape } from 'shescape';
 import { z } from 'zod';
 
 // Helper function to detect if the current shell is PowerShell
@@ -38,20 +38,21 @@ function isPowerShell(): boolean {
   return process.platform === 'win32' && !process.env.SHELL;
 }
 
-// Helper function to escape shell arguments using any-shell-escape library
-// Maintains backward compatibility with the original escapeShellArg function signature
-function escapeShellArg(arg: string, _isPS: boolean): string {
-  // For PowerShell, we need custom escaping since any-shell-escape doesn't distinguish
-  // between PowerShell and cmd.exe (it only checks process.platform)
-  // if (isPS) {
-  //   // PowerShell escaping: use single quotes and escape single quotes with double single quotes
-  //   // This preserves UTF-8 and all special characters
-  //   return `'${arg.replace(/'/g, "''")}'`;
-  // }
+// Helper function to escape shell arguments using shescape library
+// Shescape automatically detects the shell and applies appropriate escaping
+function escapeShellArg(arg: string, isPS: boolean): string {
+  // Create a Shescape instance with shell detection
+  // Shescape will automatically detect the shell based on the environment
+  // For PowerShell, it uses PowerShell-specific escaping rules
+  // For Unix shells (bash/sh/zsh), it uses POSIX shell escaping
+  const shescape = new Shescape({
+    shell: isPS ? 'powershell' : true, // 'powershell' for PowerShell, true for auto-detection
+    flagProtection: true, // Enable flag protection to prevent flag injection attacks
+  });
 
-  // For Unix shells (bash/sh/zsh), use any-shell-escape library
-  // The library handles proper escaping for POSIX shells with UTF-8 support
-  return anyShellEscape(arg);
+  // Use the quote method to properly escape the argument
+  // This returns a quoted string that is safe to use in shell commands
+  return shescape.quote(arg);
 }
 
 // Create MCP server
@@ -106,15 +107,29 @@ server.registerTool(
       // Format command display: show 'no command' when command is 'do'
       const commandDisplay = command === 'do' ? 'no command' : command;
 
+      // Create Shescape instances for escaping variables in script content
+      // This prevents shell injection when user-controlled values are embedded in scripts
+      const shescapeForScript = new Shescape({
+        shell: isPS ? 'powershell' : 'bash',
+        flagProtection: true,
+      });
+
+      // Escape all user-controlled variables before embedding them in script content
+      const escapedCwd = shescapeForScript.quote(cwd);
+      const escapedCommandDisplay = shescapeForScript.quote(commandDisplay);
+      const escapedUserRequest = shescapeForScript.quote(user_request);
+
       let scriptContent: string;
       if (isPS) {
         // PowerShell script with UTF-8 BOM for proper encoding
         // Change to the specified directory before running the command
-        scriptContent = `\uFEFFSet-Location -Path "${cwd}"\nWrite-Host "Developer requirement: ${commandDisplay}: ${user_request}"\n---\n${auggieCommand}`;
+        // Using escaped variables to prevent injection attacks
+        scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "Developer requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n---\n${auggieCommand}`;
       } else {
         // Unix shell script with shebang
         // Change to the specified directory before running the command
-        scriptContent = `#!/bin/bash\ncd "${cwd}"\necho "Developer requirement: ${commandDisplay}: ${user_request}"\n---\n${auggieCommand}`;
+        // Using escaped variables to prevent injection attacks
+        scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "Developer requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n---\n${auggieCommand}`;
       }
 
       // Write the script file with UTF-8 encoding
@@ -127,11 +142,18 @@ server.registerTool(
 
       // Construct the execution command based on actual shell
       // No deletion needed - temp files can remain in temp directory
+      // Escape scriptPath to prevent injection in the execution command
+      const shescapeForExecution = new Shescape({
+        shell: isPS ? 'powershell' : 'bash',
+        flagProtection: true,
+      });
+      const escapedScriptPath = shescapeForExecution.quote(scriptPath);
+
       let executionCommand: string;
       if (isPS) {
-        executionCommand = `powershell -File "${scriptPath}"`;
+        executionCommand = `powershell -File ${escapedScriptPath}`;
       } else {
-        executionCommand = `bash "${scriptPath}"`;
+        executionCommand = `bash ${escapedScriptPath}`;
       }
 
       return {
