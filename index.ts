@@ -15,7 +15,7 @@ function escapeShellArg(arg: string): string {
 
 // Create MCP server
 const server = new McpServer({
-  name: 'auggie-mcp',
+  name: 'auggie-shell-mcp',
   version: '1.0.0',
 });
 
