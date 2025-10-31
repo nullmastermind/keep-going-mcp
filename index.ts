@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { chmod, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -23,7 +25,7 @@ server.registerTool(
   {
     title: 'Auggie',
     description:
-      'Returns the auggie CLI command as text for the client to review and execute. Does not execute the command directly.',
+      'Generates a shell script with the auggie CLI command and returns a short command to execute and clean it up.',
     inputSchema: {
       command: z.string().describe('The custom command to execute'),
       user_request: z.string().describe('The user request to process'),
@@ -31,25 +33,70 @@ server.registerTool(
     },
   },
   async ({ command, user_request, cwd }) => {
-    // Construct the auggie command with properly escaped arguments
-    const commandParts = [
-      'auggie',
-      '--print',
-      'command',
-      escapeShellArg(command),
-      escapeShellArg(user_request),
-      '--compact',
-    ];
-    const commandString = commandParts.join(' ');
+    try {
+      // Detect OS and determine script extension and execution command
+      const isWindows = process.platform === 'win32';
+      const scriptExtension = isWindows ? 'ps1' : 'sh';
+      const scriptFileName = `auggie_shell.${scriptExtension}`;
+      const scriptPath = join(cwd, scriptFileName);
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Command to execute in directory "${cwd}":\n\n${commandString}`,
-        },
-      ],
-    };
+      // Construct the auggie command with properly escaped arguments
+      const commandParts = [
+        'auggie',
+        '--print',
+        'command',
+        escapeShellArg(command),
+        escapeShellArg(user_request),
+        '--compact',
+      ];
+      const auggieCommand = commandParts.join(' ');
+
+      // Create script content based on OS
+      let scriptContent: string;
+      if (isWindows) {
+        // PowerShell script
+        scriptContent = auggieCommand;
+      } else {
+        // Unix shell script with shebang
+        scriptContent = `#!/bin/sh\n${auggieCommand}`;
+      }
+
+      // Write the script file
+      await writeFile(scriptPath, scriptContent, 'utf-8');
+
+      // Make the script executable on Unix systems
+      if (!isWindows) {
+        await chmod(scriptPath, 0o755);
+      }
+
+      // Construct the execution command
+      let executionCommand: string;
+      if (isWindows) {
+        executionCommand = `powershell -File ${scriptFileName}; Remove-Item ${scriptFileName}`;
+      } else {
+        executionCommand = `sh ${scriptFileName} && rm ${scriptFileName}`;
+      }
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Please execute in directory "${cwd}":\n\n${executionCommand}`,
+          },
+        ],
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `Failed to create shell script: ${errorMessage}`,
+          },
+        ],
+        isError: true,
+      };
+    }
   },
 );
 
