@@ -58,7 +58,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.10',
+  version: '1.0.11',
 });
 
 // Register Auggie tool
@@ -103,10 +103,6 @@ server.registerTool(
       }
       const auggieCommand = commandParts.join(' ');
 
-      // Create script content based on shell type
-      // Format command display: show 'no command' when command is 'do'
-      const commandDisplay = command === 'do' ? 'no command' : command;
-
       // Create Shescape instances for escaping variables in script content
       // This prevents shell injection when user-controlled values are embedded in scripts
       const shescapeForScript = new Shescape({
@@ -116,20 +112,42 @@ server.registerTool(
 
       // Escape all user-controlled variables before embedding them in script content
       const escapedCwd = shescapeForScript.quote(cwd);
-      const escapedCommandDisplay = shescapeForScript.quote(commandDisplay);
-      const escapedUserRequest = shescapeForScript.quote(user_request);
 
       let scriptContent: string;
       if (isPS) {
         // PowerShell script with UTF-8 BOM for proper encoding
         // Change to the specified directory before running the command
         // Using escaped variables to prevent injection attacks
-        scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "---\nDeveloper requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n${auggieCommand}`;
+        if (command === 'do') {
+          // Only echo developer requirement message for "do" command
+          // Truncate user_request to 500 characters and add "..." if it exceeds
+          const maxLength = 500;
+          const truncatedRequest =
+            user_request.length > maxLength
+              ? `${user_request.substring(0, maxLength)}...`
+              : user_request;
+          const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
+          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}`;
+        } else {
+          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${auggieCommand}`;
+        }
       } else {
         // Unix shell script with shebang
         // Change to the specified directory before running the command
         // Using escaped variables to prevent injection attacks
-        scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "---\nDeveloper requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n${auggieCommand}`;
+        if (command === 'do') {
+          // Only echo developer requirement message for "do" command
+          // Truncate user_request to 500 characters and add "..." if it exceeds
+          const maxLength = 500;
+          const truncatedRequest =
+            user_request.length > maxLength
+              ? `${user_request.substring(0, maxLength)}...`
+              : user_request;
+          const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
+          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "---\n${escapedTruncatedRequest}"\n${auggieCommand}`;
+        } else {
+          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${auggieCommand}`;
+        }
       }
 
       // Write the script file with UTF-8 encoding
