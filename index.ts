@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 
 import { randomBytes } from 'node:crypto';
-import { chmod, writeFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { chmod, readFile, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -89,16 +90,54 @@ server.registerTool(
       const allowCwdShell = process.env.ALLOW_CWD_SHELL === 'true';
 
       let scriptPath: string;
+      let scriptPathForOutput: string;
       if (allowCwdShell) {
         // Create script in current working directory with simple filename
         const scriptFileName = `auggie_shell.${scriptExtension}`;
         scriptPath = join(cwd, scriptFileName);
+        scriptPathForOutput = scriptFileName;
+
+        // Check if .gitignore exists in cwd and add shell scripts to it
+        const gitignorePath = join(cwd, '.gitignore');
+        if (existsSync(gitignorePath)) {
+          try {
+            const gitignoreContent = await readFile(gitignorePath, 'utf-8');
+            const lines = gitignoreContent.split('\n');
+
+            // Check if auggie_shell.ps1 and auggie_shell.sh are already in .gitignore
+            const hasPs1 = lines.some((line) => line.trim() === 'auggie_shell.ps1');
+            const hasSh = lines.some((line) => line.trim() === 'auggie_shell.sh');
+
+            // Add missing entries
+            if (!hasPs1 || !hasSh) {
+              let updatedContent = gitignoreContent;
+
+              // Ensure file ends with newline before adding new entries
+              if (updatedContent.length > 0 && !updatedContent.endsWith('\n')) {
+                updatedContent += '\n';
+              }
+
+              if (!hasPs1) {
+                updatedContent += 'auggie_shell.ps1\n';
+              }
+              if (!hasSh) {
+                updatedContent += 'auggie_shell.sh\n';
+              }
+
+              await writeFile(gitignorePath, updatedContent, 'utf-8');
+            }
+          } catch {
+            // Silently ignore errors reading/writing .gitignore
+            // This is not critical to the main functionality
+          }
+        }
       } else {
         // Generate unique script name using random bytes to prevent conflicts
         const uniqueId = randomBytes(8).toString('hex');
         const scriptFileName = `auggie_shell_${uniqueId}.${scriptExtension}`;
         // Create script in system temp directory instead of cwd
         scriptPath = join(tmpdir(), scriptFileName);
+        scriptPathForOutput = scriptPath;
       }
 
       // Construct the auggie command with properly escaped arguments
@@ -171,12 +210,12 @@ server.registerTool(
 
       // Construct the execution command based on actual shell
       // No deletion needed - temp files can remain in temp directory
-      // Escape scriptPath to prevent injection in the execution command
+      // Escape scriptPathForOutput to prevent injection in the execution command
       const shescapeForExecution = new Shescape({
         shell: isPS ? 'powershell' : 'bash',
         flagProtection: true,
       });
-      const escapedScriptPath = shescapeForExecution.quote(scriptPath);
+      const escapedScriptPath = shescapeForExecution.quote(scriptPathForOutput);
 
       let executionCommand: string;
       if (isPS) {
