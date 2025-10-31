@@ -58,7 +58,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.8',
+  version: '1.0.10',
 });
 
 // Register Auggie tool
@@ -124,12 +124,12 @@ server.registerTool(
         // PowerShell script with UTF-8 BOM for proper encoding
         // Change to the specified directory before running the command
         // Using escaped variables to prevent injection attacks
-        scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "\n\nDeveloper requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n${auggieCommand}`;
+        scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "---\nDeveloper requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n${auggieCommand}`;
       } else {
         // Unix shell script with shebang
         // Change to the specified directory before running the command
         // Using escaped variables to prevent injection attacks
-        scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "\n\nDeveloper requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n${auggieCommand}`;
+        scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "---\nDeveloper requirement: ${escapedCommandDisplay}: ${escapedUserRequest}"\n${auggieCommand}`;
       }
 
       // Write the script file with UTF-8 encoding
