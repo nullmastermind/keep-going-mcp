@@ -51,7 +51,7 @@ For Claude Desktop, add the configuration to your `claude_desktop_config.json` f
 }
 ```
 
-**With environment variables (optional):**
+**With environment variables (optional - to use temp directory instead of CWD):**
 
 ```json
 {
@@ -60,7 +60,7 @@ For Claude Desktop, add the configuration to your `claude_desktop_config.json` f
       "command": "bunx",
       "args": ["@dccxx/auggie-shell-mcp"],
       "env": {
-        "ALLOW_CWD_SHELL": "true"
+        "ALLOW_CWD_SHELL": "false"
       }
     }
   }
@@ -73,26 +73,26 @@ After adding the configuration, restart Claude Desktop for the changes to take e
 
 ### ALLOW_CWD_SHELL
 
-By default, Auggie MCP creates shell scripts in the system's temporary directory with unique filenames to prevent conflicts. If you prefer to have scripts created in the current working directory instead, you can set the `ALLOW_CWD_SHELL` environment variable to `true`.
+By default, Auggie MCP creates shell scripts in the current working directory with a simple filename. If you prefer to have scripts created in the system's temporary directory with unique filenames to prevent conflicts, you can set the `ALLOW_CWD_SHELL` environment variable to `false`.
 
-**Default behavior (ALLOW_CWD_SHELL not set or set to any value other than "true"):**
-- Scripts are created in the system temp directory
-- Filenames use a unique identifier: `auggie_shell_<random_id>.sh` or `auggie_shell_<random_id>.ps1`
-
-**When ALLOW_CWD_SHELL=true:**
+**Default behavior (ALLOW_CWD_SHELL not set or set to any value other than "false"):**
 - Scripts are created in the current working directory
 - Filename is always: `auggie_shell.sh` or `auggie_shell.ps1`
 
-**Example usage:**
+**When ALLOW_CWD_SHELL=false:**
+- Scripts are created in the system temp directory
+- Filenames use a unique identifier: `auggie_shell_<random_id>.sh` or `auggie_shell_<random_id>.ps1`
+
+**Example usage to disable CWD shell scripts:**
 
 ```bash
 # Linux/macOS
-export ALLOW_CWD_SHELL=true
+export ALLOW_CWD_SHELL=false
 npx -y @dccxx/auggie-shell-mcp
 
 # Windows PowerShell
-$env:ALLOW_CWD_SHELL="true"
+$env:ALLOW_CWD_SHELL="false"
 npx -y @dccxx/auggie-shell-mcp
 ```
 
-**Note:** When using `ALLOW_CWD_SHELL=true`, the script file will be overwritten on each execution. Make sure to add `auggie_shell.sh` and `auggie_shell.ps1` to your `.gitignore` file if you don't want these files tracked in version control.
+**Note:** With the default behavior, the script file will be overwritten on each execution. Make sure to add `auggie_shell.sh` and `auggie_shell.ps1` to your `.gitignore` file if you don't want these files tracked in version control.

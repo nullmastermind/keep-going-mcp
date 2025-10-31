@@ -59,7 +59,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.13',
+  version: '1.0.14',
 });
 
 // Register Auggie tool
@@ -86,8 +86,9 @@ server.registerTool(
       const isPS = isPowerShell();
       const scriptExtension = isPS ? 'ps1' : 'sh';
 
-      // Check if ALLOW_CWD_SHELL environment variable is set to "true"
-      const allowCwdShell = process.env.ALLOW_CWD_SHELL === 'true';
+      // Check if ALLOW_CWD_SHELL environment variable is set to "false"
+      // Default is true unless explicitly set to "false"
+      const allowCwdShell = process.env.ALLOW_CWD_SHELL !== 'false';
 
       let scriptPath: string;
       let scriptPathForOutput: string;
