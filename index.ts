@@ -52,7 +52,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.3',
+  version: '1.0.4',
 });
 
 // Register Auggie tool
@@ -63,7 +63,7 @@ server.registerTool(
     description:
       'Generates a shell script with the auggie CLI command and returns a short command to execute and clean it up.',
     inputSchema: {
-      command: z.string().describe('The custom command to execute'),
+      command: z.string().describe('The custom command to execute. If the command cannot be determined from the chat content, use "do" as the default value.'),
       user_request: z.string().describe('The user request to process'),
       cwd: z.string().describe('The current project root to use as the process cwd'),
       continue: z.boolean().optional().describe('Continue from previous conversation'),
@@ -84,8 +84,7 @@ server.registerTool(
       const commandParts = [
         'auggie',
         '--print',
-        'command',
-        escapeShellArg(command, isPS),
+        ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
         escapeShellArg(user_request, isPS),
         '--compact',
       ];
