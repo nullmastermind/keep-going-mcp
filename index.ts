@@ -59,7 +59,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.14',
+  version: '1.0.16',
 });
 
 // Register Auggie tool
@@ -218,11 +218,16 @@ server.registerTool(
       });
       const escapedScriptPath = shescapeForExecution.quote(scriptPathForOutput);
 
+      // Get shell executable from environment variables or use defaults
+      // Users can customize their shell by setting AUGGIE_POWERSHELL_EXECUTABLE or AUGGIE_BASH_EXECUTABLE
+      const powershellExecutable = process.env.AUGGIE_POWERSHELL_EXECUTABLE || 'powershell';
+      const bashExecutable = process.env.AUGGIE_BASH_EXECUTABLE || 'bash';
+
       let executionCommand: string;
       if (isPS) {
-        executionCommand = `powershell -File ${escapedScriptPath}`;
+        executionCommand = `${powershellExecutable} -File ${escapedScriptPath}`;
       } else {
-        executionCommand = `bash ${escapedScriptPath}`;
+        executionCommand = `${bashExecutable} ${escapedScriptPath}`;
       }
 
       return {

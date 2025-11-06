@@ -96,3 +96,63 @@ npx -y @dccxx/auggie-shell-mcp
 ```
 
 **Note:** With the default behavior, the script file will be overwritten on each execution. Make sure to add `auggie_shell.sh` and `auggie_shell.ps1` to your `.gitignore` file if you don't want these files tracked in version control.
+
+### AUGGIE_POWERSHELL_EXECUTABLE
+
+Allows you to specify a custom PowerShell executable instead of the default `powershell`. This is useful if you want to use PowerShell Core (`pwsh`) or a custom shell on Windows.
+
+**Default:** `powershell`
+
+**Example usage with PowerShell Core:**
+
+```bash
+# Windows PowerShell
+$env:AUGGIE_POWERSHELL_EXECUTABLE="pwsh"
+npx -y @dccxx/auggie-shell-mcp
+```
+
+**Example configuration in Claude Desktop:**
+
+```json
+{
+  "mcpServers": {
+    "auggie-mcp-server": {
+      "command": "bunx",
+      "args": ["@dccxx/auggie-shell-mcp"],
+      "env": {
+        "AUGGIE_POWERSHELL_EXECUTABLE": "pwsh"
+      }
+    }
+  }
+}
+```
+
+### AUGGIE_BASH_EXECUTABLE
+
+Allows you to specify a custom bash-compatible shell executable instead of the default `bash`. This is useful if you want to use `zsh`, `fish`, or other custom shells on Unix-like systems.
+
+**Default:** `bash`
+
+**Example usage with zsh:**
+
+```bash
+# Linux/macOS
+export AUGGIE_BASH_EXECUTABLE=zsh
+npx -y @dccxx/auggie-shell-mcp
+```
+
+**Example configuration in Claude Desktop:**
+
+```json
+{
+  "mcpServers": {
+    "auggie-mcp-server": {
+      "command": "bunx",
+      "args": ["@dccxx/auggie-shell-mcp"],
+      "env": {
+        "AUGGIE_BASH_EXECUTABLE": "zsh"
+      }
+    }
+  }
+}
+```
