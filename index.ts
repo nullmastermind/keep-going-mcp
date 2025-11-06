@@ -43,11 +43,12 @@ function isPowerShell(): boolean {
 // Shescape automatically detects the shell and applies appropriate escaping
 function escapeShellArg(arg: string, isPS: boolean): string {
   // Create a Shescape instance with shell detection
-  // Shescape will automatically detect the shell based on the environment
   // For PowerShell, it uses PowerShell-specific escaping rules
-  // For Unix shells (bash/sh/zsh), it uses POSIX shell escaping
+  // For Unix shells (bash/zsh), it uses POSIX shell escaping
+  // We explicitly specify 'bash' instead of using auto-detection (true) because
+  // auto-detection may incorrectly identify 'sh' which Shescape doesn't support
   const shescape = new Shescape({
-    shell: isPS ? 'powershell' : true, // 'powershell' for PowerShell, true for auto-detection
+    shell: isPS ? 'powershell' : 'bash', // 'powershell' for PowerShell, 'bash' for Unix shells
     flagProtection: true, // Enable flag protection to prevent flag injection attacks
   });
 
@@ -59,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.16',
+  version: '1.0.17',
 });
 
 // Register Auggie tool
