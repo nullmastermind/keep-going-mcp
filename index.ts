@@ -60,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.18',
+  version: '1.0.19',
 });
 
 // Register Auggie tool
@@ -179,9 +179,9 @@ server.registerTool(
               ? `${user_request.substring(0, maxLength)}...`
               : user_request;
           const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
-          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}`;
+          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
         } else {
-          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${auggieCommand}`;
+          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
         }
       } else {
         // Unix shell script with shebang
@@ -196,9 +196,9 @@ server.registerTool(
               ? `${user_request.substring(0, maxLength)}...`
               : user_request;
           const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
-          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "---\n${escapedTruncatedRequest}"\n${auggieCommand}`;
+          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nrm "$0"`;
         } else {
-          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${auggieCommand}`;
+          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${auggieCommand}\nrm "$0"`;
         }
       }
 

@@ -1,6 +1,6 @@
 {
   "name": "@dccxx/auggie-shell-mcp",
-  "version": "1.0.18",
+  "version": "1.0.19",
   "description": "A Model Context Protocol server that provides an Auggie tool for generating CLI commands for client review and execution",
   "main": "dist/index.js",
   "module": "dist/index.js",
