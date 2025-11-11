@@ -71,6 +71,45 @@ After adding the configuration, restart Claude Desktop for the changes to take e
 
 ## Environment Variables
 
+### AUTO_FETCH_AUTH
+
+Automatically runs `auggiegw fetch --auth-only` at the beginning of the generated shell script to fetch authentication credentials before executing the main Auggie command. This is useful when you need to ensure authentication is refreshed before running commands.
+
+**Behavior:**
+- When `AUTO_FETCH_AUTH=true` and the `continue` flag is `false`, the command `auggiegw fetch --auth-only` will be added at the start of the shell script (after changing to the working directory but before the main auggie command)
+- When `AUTO_FETCH_AUTH` is not set or set to any value other than "true", no auth fetch command is added
+- The auth fetch command is NOT added when using the `--continue` flag, as continuing a conversation doesn't require re-authentication
+
+**Default:** Not enabled (no auth fetch command is added)
+
+**Example usage:**
+
+```bash
+# Linux/macOS
+export AUTO_FETCH_AUTH=true
+npx -y @dccxx/auggie-shell-mcp
+
+# Windows PowerShell
+$env:AUTO_FETCH_AUTH="true"
+npx -y @dccxx/auggie-shell-mcp
+```
+
+**Example configuration in Claude Desktop:**
+
+```json
+{
+  "mcpServers": {
+    "auggie-mcp-server": {
+      "command": "bunx",
+      "args": ["@dccxx/auggie-shell-mcp"],
+      "env": {
+        "AUTO_FETCH_AUTH": "true"
+      }
+    }
+  }
+}
+```
+
 ### ALLOW_CWD_SHELL
 
 By default, Auggie MCP creates shell scripts in the current working directory with a simple filename. If you prefer to have scripts created in the system's temporary directory with unique filenames to prevent conflicts, you can set the `ALLOW_CWD_SHELL` environment variable to `false`.

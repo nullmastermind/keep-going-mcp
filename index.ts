@@ -91,6 +91,10 @@ server.registerTool(
       // Default is true unless explicitly set to "false"
       const allowCwdShell = process.env.ALLOW_CWD_SHELL !== 'false';
 
+      // Check if AUTO_FETCH_AUTH environment variable is enabled
+      // If enabled and continue flag is false, add auggiegw fetch --auth-only command
+      const autoFetchAuth = process.env.AUTO_FETCH_AUTH === 'true';
+
       let scriptPath: string;
       let scriptPathForOutput: string;
       if (allowCwdShell) {
@@ -165,6 +169,9 @@ server.registerTool(
       // Escape all user-controlled variables before embedding them in script content
       const escapedCwd = shescapeForScript.quote(cwd);
 
+      // Prepare the auth fetch command if AUTO_FETCH_AUTH is enabled and continue flag is false
+      const authFetchCommand = autoFetchAuth && !continueFlag ? 'auggiegw fetch --auth-only' : '';
+
       let scriptContent: string;
       if (isPS) {
         // PowerShell script with UTF-8 BOM for proper encoding
@@ -179,9 +186,11 @@ server.registerTool(
               ? `${user_request.substring(0, maxLength)}...`
               : user_request;
           const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
-          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\nWrite-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
+          const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
+          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}Write-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
         } else {
-          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
+          const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
+          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
         }
       } else {
         // Unix shell script with shebang
@@ -196,9 +205,11 @@ server.registerTool(
               ? `${user_request.substring(0, maxLength)}...`
               : user_request;
           const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
-          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\necho "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nrm "$0"`;
+          const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
+          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}echo "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nrm "$0"`;
         } else {
-          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${auggieCommand}\nrm "$0"`;
+          const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
+          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}${auggieCommand}\nrm "$0"`;
         }
       }
 
