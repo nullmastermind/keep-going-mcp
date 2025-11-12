@@ -110,6 +110,55 @@ npx -y @dccxx/auggie-shell-mcp
 }
 ```
 
+### COMPACT_MODE
+
+Controls whether the `--compact` flag is passed to auggie CLI commands. The compact flag affects the output format of auggie commands, making them more concise.
+
+**Behavior:**
+- When `COMPACT_MODE` is not set, the `--compact` flag is added to auggie commands (default behavior)
+- When `COMPACT_MODE` is set to `"false"`, `"0"`, or `"disable"` (case-insensitive), the `--compact` flag is NOT added
+- Any other value will keep the compact mode enabled
+
+**Default:** Enabled (compact flag is added)
+
+**Example usage to disable compact mode:**
+
+```bash
+# Linux/macOS
+export COMPACT_MODE=false
+npx -y @dccxx/auggie-shell-mcp
+
+# Windows PowerShell
+$env:COMPACT_MODE="false"
+npx -y @dccxx/auggie-shell-mcp
+```
+
+**Example configuration in Claude Desktop:**
+
+```json
+{
+  "mcpServers": {
+    "auggie-mcp-server": {
+      "command": "bunx",
+      "args": ["@dccxx/auggie-shell-mcp"],
+      "env": {
+        "COMPACT_MODE": "false"
+      }
+    }
+  }
+}
+```
+
+**Alternative values to disable:**
+
+```bash
+# All of these will disable compact mode
+export COMPACT_MODE=false
+export COMPACT_MODE=0
+export COMPACT_MODE=disable
+export COMPACT_MODE=DISABLE  # Case-insensitive
+```
+
 ### ALLOW_CWD_SHELL
 
 By default, Auggie MCP creates shell scripts in the current working directory with a simple filename. If you prefer to have scripts created in the system's temporary directory with unique filenames to prevent conflicts, you can set the `ALLOW_CWD_SHELL` environment variable to `false`.

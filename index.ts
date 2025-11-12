@@ -60,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.20',
+  version: '1.0.21',
 });
 
 // Register Auggie tool
@@ -94,6 +94,12 @@ server.registerTool(
       // Check if AUTO_FETCH_AUTH environment variable is enabled
       // If enabled and continue flag is false, add auggiegw fetch --auth-only command
       const autoFetchAuth = process.env.AUTO_FETCH_AUTH === 'true';
+
+      // Check if COMPACT_MODE environment variable is set to "false"
+      // Default is true unless explicitly set to "false", "0", or "disable"
+      const compactMode = !['false', '0', 'disable'].includes(
+        (process.env.COMPACT_MODE || '').toLowerCase(),
+      );
 
       let scriptPath: string;
       let scriptPathForOutput: string;
@@ -152,8 +158,10 @@ server.registerTool(
         '--print',
         ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
         escapeShellArg(user_request, isPS),
-        '--compact',
       ];
+      if (compactMode) {
+        commandParts.push('--compact');
+      }
       if (continueFlag) {
         commandParts.push('--continue');
       }
