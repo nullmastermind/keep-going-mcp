@@ -60,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.26',
+  version: '1.0.27',
 });
 
 // Register Auggie tool
@@ -208,20 +208,42 @@ server.registerTool(
       await writeFile(userRequestFilePath, modifiedUserRequest, 'utf-8');
 
       // Construct the auggie command with properly escaped arguments
-      // Use a placeholder for user_request that will be replaced by variable substitution in the script
-      const commandParts = [
-        'auggie',
-        '--print',
-        ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
-        isPS ? '"$userRequest"' : '"$userRequest"',
-      ];
-      if (compactMode) {
-        commandParts.push('--compact');
+      // For PowerShell, use pipe format to avoid special character errors
+      // For other shells, use command line argument format
+      let auggieCommand: string;
+      if (isPS) {
+        // PowerShell: pipe $userRequest to auggie with stdin
+        const commandParts = [
+          '$userRequest',
+          '|',
+          'auggie',
+          '--print',
+          '-',
+          ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
+        ];
+        if (compactMode) {
+          commandParts.push('--compact');
+        }
+        if (continueFlag) {
+          commandParts.push('--continue');
+        }
+        auggieCommand = commandParts.join(' ');
+      } else {
+        // Unix shells: use command line argument format
+        const commandParts = [
+          'auggie',
+          '--print',
+          ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
+          '"$userRequest"',
+        ];
+        if (compactMode) {
+          commandParts.push('--compact');
+        }
+        if (continueFlag) {
+          commandParts.push('--continue');
+        }
+        auggieCommand = commandParts.join(' ');
       }
-      if (continueFlag) {
-        commandParts.push('--continue');
-      }
-      const auggieCommand = commandParts.join(' ');
 
       // Create Shescape instances for escaping variables in script content
       // This prevents shell injection when user-controlled values are embedded in scripts
