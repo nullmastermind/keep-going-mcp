@@ -60,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.21',
+  version: '1.0.23',
 });
 
 // Register Auggie tool
@@ -79,10 +79,28 @@ server.registerTool(
       user_request: z.string().describe('The user request to process'),
       cwd: z.string().describe('The current project root to use as the process cwd'),
       continue: z.boolean().optional().describe('Continue from previous conversation'),
+      include_chat_history: z
+        .boolean()
+        .optional()
+        .describe(
+          "Add conversation information from the previous account. This value is true if the conversation continues after switching accounts. The 'continue' parameter must be false when this value is true.",
+        ),
     },
   },
-  async ({ command, user_request, cwd, continue: continueFlag }) => {
+  async ({ command, user_request, cwd, continue: continueFlag, include_chat_history }) => {
     try {
+      // Validate that continue must be false when include_chat_history is true
+      if (include_chat_history && continueFlag) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: "Invalid parameters: 'continue' parameter must be false when 'include_chat_history' is true.",
+            },
+          ],
+          isError: true,
+        };
+      }
       // Detect actual shell being used (not just OS platform)
       const isPS = isPowerShell();
       const scriptExtension = isPS ? 'ps1' : 'sh';
@@ -101,6 +119,25 @@ server.registerTool(
         (process.env.COMPACT_MODE || '').toLowerCase(),
       );
 
+      // Check if SAVE_CONVERSATION_HISTORY environment variable is enabled
+      // Default is false unless explicitly set to "true"
+      const saveConversationHistory = process.env.SAVE_CONVERSATION_HISTORY === 'true';
+
+      // Handle include_chat_history: read conversation history and prepend to user_request
+      let modifiedUserRequest = user_request;
+      if (include_chat_history && saveConversationHistory) {
+        const conversationFilePath = join(cwd, 'auggie_shell_conversation.txt');
+        if (existsSync(conversationFilePath)) {
+          try {
+            const chatHistory = await readFile(conversationFilePath, 'utf-8');
+            modifiedUserRequest = `Continue from Chat history:\n"""""""\n${chatHistory}\n"""""""\n\nMy newest request:\n${user_request}`;
+          } catch {
+            // Silently ignore errors reading conversation history file
+            // If file cannot be read, just use the original user_request
+          }
+        }
+      }
+
       let scriptPath: string;
       let scriptPathForOutput: string;
       if (allowCwdShell) {
@@ -116,12 +153,15 @@ server.registerTool(
             const gitignoreContent = await readFile(gitignorePath, 'utf-8');
             const lines = gitignoreContent.split('\n');
 
-            // Check if auggie_shell.ps1 and auggie_shell.sh are already in .gitignore
+            // Check if auggie_shell.ps1, auggie_shell.sh, and auggie_shell_conversation.txt are already in .gitignore
             const hasPs1 = lines.some((line) => line.trim() === 'auggie_shell.ps1');
             const hasSh = lines.some((line) => line.trim() === 'auggie_shell.sh');
+            const hasConversation = lines.some(
+              (line) => line.trim() === 'auggie_shell_conversation.txt',
+            );
 
             // Add missing entries
-            if (!hasPs1 || !hasSh) {
+            if (!hasPs1 || !hasSh || !hasConversation) {
               let updatedContent = gitignoreContent;
 
               // Ensure file ends with newline before adding new entries
@@ -134,6 +174,9 @@ server.registerTool(
               }
               if (!hasSh) {
                 updatedContent += 'auggie_shell.sh\n';
+              }
+              if (!hasConversation) {
+                updatedContent += 'auggie_shell_conversation.txt\n';
               }
 
               await writeFile(gitignorePath, updatedContent, 'utf-8');
@@ -157,13 +200,13 @@ server.registerTool(
         'auggie',
         '--print',
         ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
-        escapeShellArg(user_request, isPS),
+        escapeShellArg(modifiedUserRequest, isPS),
       ];
       if (compactMode) {
         commandParts.push('--compact');
       }
       if (continueFlag) {
-        commandParts.push('--continue');
+        commandParts.push('21');
       }
       const auggieCommand = commandParts.join(' ');
 
@@ -180,6 +223,27 @@ server.registerTool(
       // Prepare the auth fetch command if AUTO_FETCH_AUTH is enabled and continue flag is false
       const authFetchCommand = autoFetchAuth && !continueFlag ? 'auggiegw fetch --auth-only' : '';
 
+      // Prepare conversation history append command if enabled
+      let conversationHistoryCommand = '';
+      if (saveConversationHistory) {
+        // Escape user_request for safe embedding in shell commands
+        const escapedUserRequest = shescapeForScript.quote(user_request);
+        const separator = '='.repeat(80);
+        const timestamp = new Date().toISOString();
+
+        if (isPS) {
+          // PowerShell append command
+          // Use Add-Content to append to file in the script's directory
+          // PowerShell uses backtick for newline: `n
+          conversationHistoryCommand = `Add-Content -Path (Join-Path (Split-Path $PSCommandPath) 'auggie_shell_conversation.txt') -Value "${separator}\`n[${timestamp}]\`n${escapedUserRequest}\`n"`;
+        } else {
+          // Bash append command
+          // Use echo with >> to append to file in the script's directory
+          const scriptDir = '$(dirname "$0")';
+          conversationHistoryCommand = `echo "${separator}\\n[${timestamp}]\\n${escapedUserRequest}\\n" >> ${scriptDir}/auggie_shell_conversation.txt`;
+        }
+      }
+
       let scriptContent: string;
       if (isPS) {
         // PowerShell script with UTF-8 BOM for proper encoding
@@ -195,10 +259,34 @@ server.registerTool(
               : user_request;
           const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
           const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
-          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}Write-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
+
+          if (saveConversationHistory) {
+            if (continueFlag) {
+              // When continue flag is true, just append to existing conversation file
+              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}Write-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
+            } else {
+              // When continue flag is false, delete conversation file first, then append
+              const deleteConversationFile = `Remove-Item -Path (Join-Path (Split-Path $PSCommandPath) 'auggie_shell_conversation.txt') -ErrorAction SilentlyContinue`;
+              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}Write-Host "---\n${escapedTruncatedRequest}"\n${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}`;
+            }
+          } else {
+            scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}Write-Host "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
+          }
         } else {
           const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
-          scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
+
+          if (saveConversationHistory) {
+            if (continueFlag) {
+              // When continue flag is true, just append to existing conversation file
+              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}${auggieCommand}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
+            } else {
+              // When continue flag is false, delete conversation file first, then append
+              const deleteConversationFile = `Remove-Item -Path (Join-Path (Split-Path $PSCommandPath) 'auggie_shell_conversation.txt') -ErrorAction SilentlyContinue`;
+              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}`;
+            }
+          } else {
+            scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${authLine}${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
+          }
         }
       } else {
         // Unix shell script with shebang
@@ -214,10 +302,36 @@ server.registerTool(
               : user_request;
           const escapedTruncatedRequest = shescapeForScript.quote(truncatedRequest);
           const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
-          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}echo "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nrm "$0"`;
+
+          if (saveConversationHistory) {
+            if (continueFlag) {
+              // When continue flag is true, just append to existing conversation file
+              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}echo "---\n${escapedTruncatedRequest}"\n${auggieCommand}\n${conversationHistoryCommand}\nrm "$0"`;
+            } else {
+              // When continue flag is false, delete conversation file first, then append
+              const scriptDir = '$(dirname "$0")';
+              const deleteConversationFile = `rm -f ${scriptDir}/auggie_shell_conversation.txt`;
+              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}echo "---\n${escapedTruncatedRequest}"\n${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}`;
+            }
+          } else {
+            scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}echo "---\n${escapedTruncatedRequest}"\n${auggieCommand}\nrm "$0"`;
+          }
         } else {
           const authLine = authFetchCommand ? `${authFetchCommand}\n` : '';
-          scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}${auggieCommand}\nrm "$0"`;
+
+          if (saveConversationHistory) {
+            if (continueFlag) {
+              // When continue flag is true, just append to existing conversation file
+              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}${auggieCommand}\n${conversationHistoryCommand}\nrm "$0"`;
+            } else {
+              // When continue flag is false, delete conversation file first, then append
+              const scriptDir = '$(dirname "$0")';
+              const deleteConversationFile = `rm -f ${scriptDir}/auggie_shell_conversation.txt`;
+              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}`;
+            }
+          } else {
+            scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${authLine}${auggieCommand}\nrm "$0"`;
+          }
         }
       }
 
