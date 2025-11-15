@@ -60,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.27',
+  version: '1.0.28',
 });
 
 // Register Auggie tool
@@ -302,9 +302,9 @@ server.registerTool(
               // When continue flag is true, just append to existing conversation file
               scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}Write-Host "---\n$userRequest"\n${auggieCommand}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
             } else {
-              // When continue flag is false, delete conversation file first, then append
+              // When continue flag is false, delete conversation file after auggie command completes
               const deleteConversationFile = `Remove-Item -Path (Join-Path (Split-Path $PSCommandPath) 'auggie_shell_conversation.txt') -ErrorAction SilentlyContinue`;
-              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}Write-Host "---\n$userRequest"\n${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
+              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}Write-Host "---\n$userRequest"\n${auggieCommand}\n${deleteConversationFile}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
             }
           } else {
             scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${authLine}Write-Host "---\n$userRequest"\n${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
@@ -317,9 +317,9 @@ server.registerTool(
               // When continue flag is true, just append to existing conversation file
               scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}${auggieCommand}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
             } else {
-              // When continue flag is false, delete conversation file first, then append
+              // When continue flag is false, delete conversation file after auggie command completes
               const deleteConversationFile = `Remove-Item -Path (Join-Path (Split-Path $PSCommandPath) 'auggie_shell_conversation.txt') -ErrorAction SilentlyContinue`;
-              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
+              scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}${auggieCommand}\n${deleteConversationFile}\n${conversationHistoryCommand}\nRemove-Item $PSCommandPath -Force`;
             }
           } else {
             scriptContent = `\uFEFFSet-Location -Path ${escapedCwd}\n${readUserRequestCommand}\n${authLine}${auggieCommand}\nRemove-Item $PSCommandPath -Force`;
@@ -346,10 +346,10 @@ server.registerTool(
               // When continue flag is true, just append to existing conversation file
               scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}echo "---\n$userRequest"\n${auggieCommand}\n${conversationHistoryCommand}\nrm "$0"`;
             } else {
-              // When continue flag is false, delete conversation file first, then append
+              // When continue flag is false, delete conversation file after auggie command completes
               const scriptDir = '$(dirname "$0")';
               const deleteConversationFile = `rm -f ${scriptDir}/auggie_shell_conversation.txt`;
-              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}echo "---\n$userRequest"\n${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}\nrm "$0"`;
+              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}echo "---\n$userRequest"\n${auggieCommand}\n${deleteConversationFile}\n${conversationHistoryCommand}\nrm "$0"`;
             }
           } else {
             scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${authLine}echo "---\n$userRequest"\n${auggieCommand}\nrm "$0"`;
@@ -362,10 +362,10 @@ server.registerTool(
               // When continue flag is true, just append to existing conversation file
               scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}${auggieCommand}\n${conversationHistoryCommand}\nrm "$0"`;
             } else {
-              // When continue flag is false, delete conversation file first, then append
+              // When continue flag is false, delete conversation file after auggie command completes
               const scriptDir = '$(dirname "$0")';
               const deleteConversationFile = `rm -f ${scriptDir}/auggie_shell_conversation.txt`;
-              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}${deleteConversationFile}\n${auggieCommand}\n${conversationHistoryCommand}\nrm "$0"`;
+              scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${readOriginalUserRequestCommand}\n${authLine}${auggieCommand}\n${deleteConversationFile}\n${conversationHistoryCommand}\nrm "$0"`;
             }
           } else {
             scriptContent = `#!/bin/bash\ncd ${escapedCwd}\n${readUserRequestCommand}\n${authLine}${auggieCommand}\nrm "$0"`;
