@@ -15,8 +15,17 @@ export function startRelayServer(): void {
 
   // Relay/proxy route
   app.all('/:nodeId/*wildcardPath', async (req: Request, res: Response) => {
-    const { nodeId, wildcardPath } = req.params;
-    const targetUrl = `https://${nodeId}.api.augmentcode.com/${wildcardPath || ''}`;
+    const { nodeId } = req.params;
+
+    // Extract the path after /:nodeId/ from the original URL
+    // This avoids Express 5's wildcard behavior of joining segments with commas
+    const fullPath = req.path; // e.g., "/d18/agents/list-remote-tools"
+    const nodeIdPrefix = `/${nodeId}/`;
+    const wildcardPath = fullPath.startsWith(nodeIdPrefix)
+      ? fullPath.slice(nodeIdPrefix.length)
+      : '';
+
+    const targetUrl = `https://${nodeId}.api.augmentcode.com/${wildcardPath}`;
 
     console.log('Received request for', JSON.stringify(targetUrl));
 
