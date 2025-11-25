@@ -37,3 +37,4 @@ auggie_shell.ps1
 auggie_shell.sh
 auggie_shell_conversation.txt
 auggie_shell_user_request.txt
+session.json

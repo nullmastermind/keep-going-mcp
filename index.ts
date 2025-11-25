@@ -37,14 +37,21 @@ server.registerTool(
 async function search(query: string, projectRoot: string): Promise<string> {
   return new Promise<string>((resolve) => {
     Auggie.create({
+      auggiePath: 'bun augment.mjs',
       model: 'haiku4.5',
       workspaceRoot: projectRoot,
       allowIndexing: true,
+      // apiUrl: 'http://localhost:8080',
     }).then((client: any) => {
       client.onSessionUpdate((event: any) => {
         // console.log(event.update.sessionUpdate);
 
         switch (event.update.sessionUpdate) {
+          // case 'agent_message_chunk':
+          //   if (event.update.content.type === 'text') {
+          //     process.stdout.write(event.update.content.text);
+          //   }
+          //   break;
           case 'tool_call_update':
             resolve(String(event.update.rawOutput?.output || 'Error: Something went wrong'));
             client.close();
@@ -52,10 +59,14 @@ async function search(query: string, projectRoot: string): Promise<string> {
         }
       });
 
-      client.prompt(`call code-retrieval: ${JSON.stringify(query)}`).then(() => {
-        client.close();
-        resolve('Error: Something went wrong');
-      });
+      client
+        .prompt(
+          `call code-retrieval: ${JSON.stringify(query)}\n\ncall code-retrieval ngay lập tức (không cần câu mở đầu "I'll...", etc).\n\n{`,
+        )
+        .then(() => {
+          client.close();
+          resolve('Error: Something went wrong');
+        });
     });
   });
 }

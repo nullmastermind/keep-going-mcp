@@ -17,7 +17,8 @@
       "!**/.quasar",
       "!**/src/css/tailwind.css",
       "!packages/app/quasar.config.ts",
-      "!tsconfig.json"
+      "!tsconfig.json",
+      "!augment.mjs"
     ]
   },
   "formatter": {
