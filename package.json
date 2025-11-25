@@ -37,7 +37,8 @@
     "lint": "bunx biome check --write",
     "typecheck": "bunx tsc --project tsconfig.json",
     "start": "node dist/index.js",
-    "test": "npm run build && npm run start"
+    "test": "npm run build && npm run start",
+    "dev": "bun run build && bun run start"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",
