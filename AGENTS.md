@@ -1,8 +1,4 @@
-# Priority Rules (override default if there is a duplicate) (TOML formatted)
-
-[language_requirements]
-rule_1 = "When a user asks in a language other than English, reiterate the request in English before proceeding"
-rule_2 = "ALWAYS think, answer, and perform in English"
+# Priority Rules (override default if there is a duplicate)
 
 [code_quality_standards.core_principles]
 rule_1 = "DON'T write unused code - ensure everything written is utilized in the project"
@@ -43,4 +39,3 @@ principle_8 = "Learn & Adapt"
 [typescript_development]
 rule_1 = "ALWAYS run 'bun run lint' and 'bun run typecheck' at root directory after writing code to ensure code quality"
 rule_2 = "Linter: biome. NEVER run --unsafe, manually fix all errors"
-
