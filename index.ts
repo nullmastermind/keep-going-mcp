@@ -4,7 +4,7 @@ import { Auggie } from '@augmentcode/auggie-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { startRelayServer } from './relay-server.js';
+import { join } from 'node:path';
 
 // Create MCP server
 const server = new McpServer({
@@ -38,13 +38,13 @@ server.registerTool(
 async function search(query: string, projectRoot: string): Promise<string> {
   return new Promise<string>((resolve) => {
     // Extract subdomain from AUGMENT_API_URL (e.g., "d1" from "https://d1.api.augmentcode.com/")
-    const extractSubdomain = (url: string | undefined): string => {
-      if (!url) return 'd1'; // Default fallback
-      const match = url.match(/https?:\/\/([^.]+)\.api\.augmentcode\.com/);
-      return match?.[1] ?? 'd1'; // Return extracted subdomain or default
-    };
+    // const extractSubdomain = (url: string | undefined): string => {
+    //   if (!url) return 'd1'; // Default fallback
+    //   const match = url.match(/https?:\/\/([^.]+)\.api\.augmentcode\.com/);
+    //   return match?.[1] ?? 'd1'; // Return extracted subdomain or default
+    // };
 
-    const subdomain = extractSubdomain(process.env.AUGMENT_API_URL);
+    // extractSubdomain(process.env.AUGMENT_API_URL);
 
     Auggie.create({
       // auggiePath: 'node augment.mjs',
@@ -53,35 +53,40 @@ async function search(query: string, projectRoot: string): Promise<string> {
       allowIndexing: true,
       // apiUrl: `http://localhost:${process.env.PORT || 8188}/${subdomain}/`,
       // apiKey: process.env.AUGMENT_API_TOKEN,
+      rules: [join(__dirname, 'rules.md')],
     }).then((client: any) => {
-      let result = '';
-
       client.onSessionUpdate((event: any) => {
         // console.log(event.update.sessionUpdate);
         switch (event.update.sessionUpdate) {
           // case 'agent_message_chunk':
           //   if (event.update.content.type === 'text') {
           //     process.stdout.write(event.update.content.text);
-          //     // result += event.update.content.text;
           //   }
           //   break;
-          case 'tool_call_update':
+          case 'tool_call_update': {
             // resolve(String(event.update.rawOutput?.output || 'Error: Something went wrong'));
             // client.close();
-            result += String(event.update.rawOutput?.output || '');
-            if (result.includes("Path:")) {
-              resolve(result);
+            const toolResult = String(event.update.rawOutput?.output || '');
+            if (
+              toolResult.includes('Path:') &&
+              toolResult.includes('The following code sections were retrieved:')
+            ) {
+              resolve(toolResult);
               client.close();
             }
             break;
+          }
         }
       });
 
       client
-        .prompt(`call codebase-retrieval: information_request=${JSON.stringify(query)}`)
+        .prompt(
+          `FORCE call codebase-retrieval: information_request=${JSON.stringify(query)}, retry if empty (max 3 times) - disable all other tools`,
+          { isAnswerOnly: true },
+        )
         .then(() => {
+          resolve('Error: Something went wrong');
           client.close();
-          resolve(result || 'Error: Something went wrong');
         });
     });
   });
@@ -97,7 +102,9 @@ async function main() {
   // startRelayServer();
 
   // setTimeout(async () => {
-    console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
+  // console.time('codebase-retrieval');
+  // console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
+  // console.timeEnd('codebase-retrieval');
   // }, 2000);
 }
 
