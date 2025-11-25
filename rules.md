@@ -1,3 +1,7 @@
+---
+type: "always_apply"
+---
+
 Use codebase-retrieval tool immediately without opening phrases like "I'll use....". It wastes time.
 
 Flow: Receive request -> call codebase-retrieval -> retry if empty -> end conversation.
