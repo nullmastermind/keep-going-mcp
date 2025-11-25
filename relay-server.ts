@@ -70,9 +70,45 @@ export function startRelayServer(): void {
         res.setHeader(key, value);
       });
 
-      // Forward response body
-      const responseBody = await response.arrayBuffer();
-      res.send(Buffer.from(responseBody));
+      // Check if this is an SSE stream
+      const isSSE = targetUrl.includes('/chat-stream');
+
+      if (isSSE && response.body) {
+        // For SSE: stream the response body directly without buffering
+        console.log('Streaming SSE response');
+
+        const reader = response.body.getReader();
+
+        // Handle client disconnect
+        req.on('close', () => {
+          console.log('Client disconnected, canceling stream');
+          reader.cancel();
+        });
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+
+            if (done) {
+              console.log('Stream ended');
+              res.end();
+              break;
+            }
+
+            // Write chunk to response
+            res.write(Buffer.from(value));
+          }
+        } catch (streamError) {
+          console.error('Stream error:', streamError);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Stream error' });
+          }
+        }
+      } else {
+        // For non-SSE: buffer the entire response before sending
+        const responseBody = await response.arrayBuffer();
+        res.send(Buffer.from(responseBody));
+      }
     } catch (error) {
       console.error('Proxy error:', error);
       res.status(500).json({ error: 'Proxy request failed' });
