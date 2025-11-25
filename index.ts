@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 
+import { Auggie } from '@augmentcode/auggie-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { startRelayServer } from './relay-server.js';
 
 // Create MCP server
 const server = new McpServer({
@@ -22,18 +22,43 @@ server.registerTool(
       query: z.string().describe('The query to search for in the project'),
     },
   },
-  async ({ project_root: _project_root, query: _query }) => {
-    // Simple mock implementation that returns "nothing found"
+  async ({ project_root: projectRoot, query }) => {
     return {
       content: [
         {
           type: 'text',
-          text: 'nothing found',
+          text: await search(query, projectRoot),
         },
       ],
     };
   },
 );
+
+async function search(query: string, projectRoot: string): Promise<string> {
+  return new Promise<string>((resolve) => {
+    Auggie.create({
+      model: 'haiku4.5',
+      workspaceRoot: projectRoot,
+      allowIndexing: true,
+    }).then((client: any) => {
+      client.onSessionUpdate((event: any) => {
+        // console.log(event.update.sessionUpdate);
+
+        switch (event.update.sessionUpdate) {
+          case 'tool_call_update':
+            resolve(String(event.update.rawOutput?.output || 'Error: Something went wrong'));
+            client.close();
+            break;
+        }
+      });
+
+      client.prompt(`call code-retrieval: ${JSON.stringify(query)}`).then(() => {
+        client.close();
+        resolve('Error: Something went wrong');
+      });
+    });
+  });
+}
 
 // Start both MCP server and Express server in parallel
 async function main() {
@@ -42,8 +67,7 @@ async function main() {
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
 
-  // Start Express relay/proxy server
-  startRelayServer();
+  // console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
 }
 
 main().catch((error) => {

@@ -38,7 +38,7 @@
     "typecheck": "bunx tsc --project tsconfig.json",
     "start": "node dist/index.js",
     "test": "npm run build && npm run start",
-    "dev": "bun run build && bun run start"
+    "dev": "bun run index.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.4",
@@ -48,6 +48,7 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@augmentcode/auggie-sdk": "^0.1.5",
     "@modelcontextprotocol/sdk": "^1.18.1",
     "@types/express": "^5.0.5",
     "express": "^5.1.0",
