@@ -18,7 +18,7 @@ export function startRelayServer(): void {
     const { nodeId, wildcardPath } = req.params;
     const targetUrl = `https://${nodeId}.api.augmentcode.com/${wildcardPath || ''}`;
 
-    console.log('Received request for', targetUrl);
+    console.log('Received request for', JSON.stringify(targetUrl));
 
     try {
       // Prepare headers (exclude host header to avoid conflicts)

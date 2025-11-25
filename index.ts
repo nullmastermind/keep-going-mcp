@@ -4,6 +4,7 @@ import { Auggie } from '@augmentcode/auggie-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { startRelayServer } from './relay-server.js';
 
 // Create MCP server
 const server = new McpServer({
@@ -36,12 +37,22 @@ server.registerTool(
 
 async function search(query: string, projectRoot: string): Promise<string> {
   return new Promise<string>((resolve) => {
+    // Extract subdomain from AUGMENT_API_URL (e.g., "d1" from "https://d1.api.augmentcode.com/")
+    const extractSubdomain = (url: string | undefined): string => {
+      if (!url) return 'd1'; // Default fallback
+      const match = url.match(/https?:\/\/([^.]+)\.api\.augmentcode\.com/);
+      return match?.[1] ?? 'd1'; // Return extracted subdomain or default
+    };
+
+    const subdomain = extractSubdomain(process.env.AUGMENT_API_URL);
+
     Auggie.create({
       auggiePath: 'bun augment.mjs',
       model: 'haiku4.5',
       workspaceRoot: projectRoot,
       allowIndexing: true,
-      // apiUrl: 'http://localhost:8080',
+      apiUrl: `http://localhost:${process.env.PORT || 8188}/${subdomain}/`,
+      apiKey: process.env.AUGMENT_API_TOKEN,
     }).then((client: any) => {
       client.onSessionUpdate((event: any) => {
         // console.log(event.update.sessionUpdate);
@@ -78,7 +89,11 @@ async function main() {
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
 
-  // console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
+  startRelayServer();
+
+  setTimeout(async () => {
+    console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
+  }, 1000);
 }
 
 main().catch((error) => {
