@@ -25,9 +25,9 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "https://github.com/nullmastermind/auggie-shell-mcp.git"
   },
-  "homepage": "",
+  "homepage": "https://github.com/nullmastermind/auggie-shell-mcp",
   "engines": {
     "node": ">=18.0.0"
   },
