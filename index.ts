@@ -47,36 +47,41 @@ async function search(query: string, projectRoot: string): Promise<string> {
     const subdomain = extractSubdomain(process.env.AUGMENT_API_URL);
 
     Auggie.create({
-      auggiePath: 'bun augment.mjs',
+      // auggiePath: 'node augment.mjs',
       model: 'haiku4.5',
       workspaceRoot: projectRoot,
       allowIndexing: true,
-      apiUrl: `http://localhost:${process.env.PORT || 8188}/${subdomain}/`,
-      apiKey: process.env.AUGMENT_API_TOKEN,
+      // apiUrl: `http://localhost:${process.env.PORT || 8188}/${subdomain}/`,
+      // apiKey: process.env.AUGMENT_API_TOKEN,
     }).then((client: any) => {
+      let result = '';
+
       client.onSessionUpdate((event: any) => {
         // console.log(event.update.sessionUpdate);
-
         switch (event.update.sessionUpdate) {
           // case 'agent_message_chunk':
           //   if (event.update.content.type === 'text') {
           //     process.stdout.write(event.update.content.text);
+          //     // result += event.update.content.text;
           //   }
           //   break;
           case 'tool_call_update':
-            resolve(String(event.update.rawOutput?.output || 'Error: Something went wrong'));
-            client.close();
+            // resolve(String(event.update.rawOutput?.output || 'Error: Something went wrong'));
+            // client.close();
+            result += String(event.update.rawOutput?.output || '');
+            if (result.includes("Path:")) {
+              resolve(result);
+              client.close();
+            }
             break;
         }
       });
 
       client
-        .prompt(
-          `call code-retrieval: ${JSON.stringify(query)}\n\ncall code-retrieval ngay lập tức (không cần câu mở đầu "I'll...", etc).\n\n{`,
-        )
+        .prompt(`call codebase-retrieval: information_request=${JSON.stringify(query)}`)
         .then(() => {
           client.close();
-          resolve('Error: Something went wrong');
+          resolve(result || 'Error: Something went wrong');
         });
     });
   });
@@ -89,11 +94,11 @@ async function main() {
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
 
-  startRelayServer();
+  // startRelayServer();
 
-  setTimeout(async () => {
+  // setTimeout(async () => {
     console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
-  }, 1000);
+  // }, 2000);
 }
 
 main().catch((error) => {
