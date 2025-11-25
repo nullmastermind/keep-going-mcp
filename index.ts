@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 
+import { join } from 'node:path';
 import { Auggie } from '@augmentcode/auggie-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { join } from 'node:path';
 
 // Create MCP server
 const server = new McpServer({
@@ -14,21 +14,26 @@ const server = new McpServer({
 
 // Register context engine tool
 server.registerTool(
-  'query_context',
+  'codebase-retrieval',
   {
-    title: 'Query Context',
-    description: 'Query the context engine for project information',
+    title: 'Codebase Retrieval',
+    description: `This tool is Augment's context engine, the world's best codebase context engine. It:\n1. Takes in a natural
+       language description of the code you are looking for;\n2. Uses a proprietary retrieval/embedding model suite that produces the
+       highest-quality recall of relevant code snippets from across the codebase;\n3. Maintains a real-time index of the codebase, so
+       the results are always up-to-date and reflects the current state of the codebase;\n4. Can retrieve across different programming
+       languages;\n5. Only reflects the current state of the codebase on the disk, and has no information on version control or code
+       history.`,
     inputSchema: {
       project_root: z.string().describe('The project root directory path'),
-      query: z.string().describe('The query to search for in the project'),
+      information_request: z.string().describe('A description of the information you need.'),
     },
   },
-  async ({ project_root: projectRoot, query }) => {
+  async ({ project_root: projectRoot, information_request }) => {
     return {
       content: [
         {
           type: 'text',
-          text: await search(query, projectRoot),
+          text: await search(information_request, projectRoot),
         },
       ],
     };
