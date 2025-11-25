@@ -3,6 +3,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+import { startRelayServer } from './relay-server.js';
 
 // Create MCP server
 const server = new McpServer({
@@ -34,11 +35,15 @@ server.registerTool(
   },
 );
 
-// Start the server with stdio transport
+// Start both MCP server and Express server in parallel
 async function main() {
+  // Start MCP server with stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
+
+  // Start Express relay/proxy server
+  startRelayServer();
 }
 
 main().catch((error) => {
