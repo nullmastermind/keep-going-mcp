@@ -60,7 +60,7 @@ function escapeShellArg(arg: string, isPS: boolean): string {
 // Create MCP server
 const server = new McpServer({
   name: 'auggie-shell-mcp',
-  version: '1.0.28',
+  version: '1.0.29',
 });
 
 // Register Auggie tool
@@ -217,9 +217,9 @@ server.registerTool(
           '$userRequest',
           '|',
           'auggie',
+          ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
           '--print',
           '-',
-          ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
         ];
         if (compactMode) {
           commandParts.push('--compact');
@@ -232,8 +232,8 @@ server.registerTool(
         // Unix shells: use command line argument format
         const commandParts = [
           'auggie',
-          '--print',
           ...(command !== 'do' ? ['command', escapeShellArg(command, isPS)] : []),
+          '--print',
           '"$userRequest"',
         ];
         if (compactMode) {
