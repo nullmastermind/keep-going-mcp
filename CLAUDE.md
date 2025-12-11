@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Model Context Protocol (MCP) server that wraps Augment Code's context engine, exposing it as a `codebase-retrieval` tool for AI assistants. The server uses the `@augmentcode/auggie-sdk` to perform intelligent code retrieval across any project directory.
+This is a Model Context Protocol (MCP) server that wraps Augment Code's context engine, exposing it as a `codebase-retrieval` tool for AI assistants. The server uses `FileSystemContext` from `@augmentcode/auggie-sdk` to perform intelligent code retrieval across any project directory.
 
-**Package name**: `@dccxx/context-engine-mcp`
+**Package name**: `auggie-context-engine-mcp`
 
 ## Common Commands
 
@@ -41,43 +41,43 @@ bun run lint && bun run typecheck
 ## Architecture
 
 ### Entry Point (`index.ts`)
+Single-file MCP server implementation:
 - Creates an MCP server using `@modelcontextprotocol/sdk`
-- Registers a single tool: `codebase-retrieval`
+- Registers the `codebase-retrieval` tool with Zod schema validation
 - Uses `StdioServerTransport` for communication with MCP clients
 
 ### Core Flow
-1. MCP client calls `codebase-retrieval` with `project_root` and `information_request`
-2. Server creates an Auggie client with the specified `workspaceRoot`
-3. Auggie is prompted to call its internal `codebase-retrieval` tool
-4. Response is extracted from `tool_call_update` events when output contains "Path:" and "The following code sections were retrieved:"
-5. Result is returned to MCP client
+1. MCP client calls `codebase-retrieval` with `project_root` and `information_request` parameters
+2. Server creates a `FileSystemContext` instance for the specified project directory
+3. Calls `context.search(query)` to perform semantic code search
+4. **Retry logic**: Retries up to 3 times if the result doesn't contain `"Path:"` marker
+5. Returns the last result even if marker not found after all attempts
+6. Context is always closed in `finally` block to prevent resource leaks
 
 ### Key Implementation Details
 
-**Auggie Client Configuration** (`index.ts:54-61`):
+**FileSystemContext Usage**:
 ```typescript
-Auggie.create({
-  model: 'haiku4.5',
-  workspaceRoot: projectRoot,
-  allowIndexing: true,
-  rules: [join(__dirname, 'rules.md')],
-})
+const context = await FileSystemContext.create({
+  directory: projectRoot,
+});
+const results = await context.search(query);
+await context.close();
 ```
 
-**Response Detection** (`index.ts:75-81`):
-The search function resolves only when the tool output contains specific markers indicating a successful retrieval. This ensures partial or error responses are not returned prematurely.
+**Success Detection**: Results are considered successful when they contain the `"Path:"` marker. This indicates the retrieval found actual code snippets.
 
-### Rules File (`rules.md`)
-Contains instructions for the internal Auggie agent to:
-- Call `codebase-retrieval` immediately without preamble
-- Retry up to 3 times if results are empty
-- Pass the `information_request` parameter unchanged
+**Error Handling**: Errors are caught and returned as formatted error messages rather than throwing, ensuring MCP clients always receive a response.
 
-### Relay Server (`relay-server.ts`)
-**Currently unused** (commented out in `index.ts:107`). This is a development/debugging tool that:
-- Proxies requests to `https://{nodeId}.api.augmentcode.com/`
-- Simulates streaming responses from `chunks.json` for `/chat-stream` endpoints
-- Logs codebase-retrieval request/response bodies
+## Special Logic & Patterns
+
+### Retry Mechanism
+The `search()` function implements a retry pattern because Augment's context engine may occasionally return empty results on first attempt. The loop continues until:
+- Results contain `"Path:"` (success marker)
+- Maximum 3 attempts reached (returns last result regardless)
+
+### Resource Cleanup
+`FileSystemContext` requires explicit cleanup via `context.close()`. This is handled in a `finally` block to ensure cleanup even on errors.
 
 ## Linter Configuration
 
@@ -90,5 +90,6 @@ Uses Biome with:
 
 - Target: ESNext with NodeNext module resolution
 - `noUncheckedIndexedAccess: true` - stricter array/object access
+- `verbatimModuleSyntax: true` - requires explicit type imports
 - Outputs to `dist/` with declarations and source maps
 
