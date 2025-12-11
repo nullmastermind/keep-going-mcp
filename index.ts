@@ -40,6 +40,7 @@ server.registerTool(
 );
 
 async function search(query: string, projectRoot: string): Promise<string> {
+  const maxAttempts = 3;
   let context: Awaited<ReturnType<typeof FileSystemContext.create>> | null = null;
 
   try {
@@ -47,7 +48,16 @@ async function search(query: string, projectRoot: string): Promise<string> {
       directory: projectRoot,
     });
 
-    const results = await context.search(query);
+    let results = '';
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      results = await context.search(query);
+
+      if (results.includes('Path:')) {
+        return results;
+      }
+    }
+
+    // Return last result even if it doesn't contain "Path:"
     return results;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
