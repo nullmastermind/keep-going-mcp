@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 
-import { join } from 'node:path';
-import { Auggie } from '@augmentcode/auggie-sdk';
+import { FileSystemContext } from '@augmentcode/auggie-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
@@ -41,60 +40,16 @@ server.registerTool(
 );
 
 async function search(query: string, projectRoot: string): Promise<string> {
-  return new Promise<string>((resolve) => {
-    // Extract subdomain from AUGMENT_API_URL (e.g., "d1" from "https://d1.api.augmentcode.com/")
-    // const extractSubdomain = (url: string | undefined): string => {
-    //   if (!url) return 'd1'; // Default fallback
-    //   const match = url.match(/https?:\/\/([^.]+)\.api\.augmentcode\.com/);
-    //   return match?.[1] ?? 'd1'; // Return extracted subdomain or default
-    // };
-
-    // extractSubdomain(process.env.AUGMENT_API_URL);
-
-    Auggie.create({
-      // auggiePath: 'node augment.mjs',
-      model: 'haiku4.5',
-      workspaceRoot: projectRoot,
-      allowIndexing: true,
-      // apiUrl: `http://localhost:${process.env.PORT || 8188}/${subdomain}/`,
-      // apiKey: process.env.AUGMENT_API_TOKEN,
-      rules: [join(__dirname, 'rules.md')],
-    }).then((client: any) => {
-      client.onSessionUpdate((event: any) => {
-        // console.log(event.update.sessionUpdate);
-        switch (event.update.sessionUpdate) {
-          // case 'agent_message_chunk':
-          //   if (event.update.content.type === 'text') {
-          //     process.stdout.write(event.update.content.text);
-          //   }
-          //   break;
-          case 'tool_call_update': {
-            // resolve(String(event.update.rawOutput?.output || 'Error: Something went wrong'));
-            // client.close();
-            const toolResult = String(event.update.rawOutput?.output || '');
-            if (
-              toolResult.includes('Path:') &&
-              toolResult.includes('The following code sections were retrieved:')
-            ) {
-              resolve(toolResult);
-              client.close();
-            }
-            break;
-          }
-        }
-      });
-
-      client
-        .prompt(
-          `FORCE call codebase-retrieval: information_request=${JSON.stringify(query)}, retry if empty (max 3 times) - disable all other tools`,
-          { isAnswerOnly: true },
-        )
-        .then(() => {
-          resolve('Error: Something went wrong');
-          client.close();
-        });
-    });
+  const context = await FileSystemContext.create({
+    directory: projectRoot,
   });
+
+  try {
+    const results = await context.search(query);
+    return results;
+  } finally {
+    await context.close();
+  }
 }
 
 // Start both MCP server and Express server in parallel
@@ -104,12 +59,10 @@ async function main() {
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
 
-  // startRelayServer();
-
   // setTimeout(async () => {
-  // console.time('codebase-retrieval');
-  // console.log(await search('thông tin dự án', 'D:\\projects\\NodeJs\\keep-going-mcp'));
-  // console.timeEnd('codebase-retrieval');
+  console.time('codebase-retrieval');
+  console.log(await search('thông tin dự án', 'D:\\projects\\research\\keep-going-mcp'));
+  console.timeEnd('codebase-retrieval');
   // }, 2000);
 }
 

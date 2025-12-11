@@ -48,7 +48,7 @@
     "typescript": "^5"
   },
   "dependencies": {
-    "@augmentcode/auggie-sdk": "^0.1.5",
+    "@augmentcode/auggie-sdk": "^0.1.10",
     "@modelcontextprotocol/sdk": "^1.18.1",
     "@types/express": "^5.0.5",
     "express": "^5.1.0",

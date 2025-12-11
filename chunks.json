@@ -1,5 +1,0 @@
-[
-  {
-    "value": "{\"text\":\"\",\"unknown_blob_names\":[],\"checkpoint_not_found\":false,\"workspace_file_chunks\":[],\"incorporated_external_sources\":[],\"nodes\":[{\"id\":1,\"type\":5,\"content\":\"\",\"tool_use\":{\"tool_use_id\":\"toolu_01ErKWQ9J9MBoWQVHLJKVT6b\",\"tool_name\":\"codebase-retrieval\",\"input_json\":\"{\\\"information_request\\\": \\\"th\\\\u00f4ng tin d\\\\u1ef1 \\\\u00e1n - project structure, main files, purpose, technology stack\\\"}\",\"is_partial\":false},\"thinking\":null,\"billing_metadata\":null,\"metadata\":{\"openai_id\":null,\"google_ts\":null,\"provider\":null},\"token_usage\":null}],\"stop_reason\":null}\n"
-  }
-]
