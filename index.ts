@@ -8,7 +8,7 @@ import { z } from 'zod';
 // Create MCP server
 const server = new McpServer({
   name: 'context-engine-mcp',
-  version: '0.0.2',
+  version: '0.0.3',
 });
 
 // Register context engine tool
