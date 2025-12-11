@@ -40,15 +40,22 @@ server.registerTool(
 );
 
 async function search(query: string, projectRoot: string): Promise<string> {
-  const context = await FileSystemContext.create({
-    directory: projectRoot,
-  });
+  let context: Awaited<ReturnType<typeof FileSystemContext.create>> | null = null;
 
   try {
+    context = await FileSystemContext.create({
+      directory: projectRoot,
+    });
+
     const results = await context.search(query);
     return results;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return `Error during codebase retrieval: ${errorMessage}`;
   } finally {
-    await context.close();
+    if (context) {
+      await context.close();
+    }
   }
 }
 
@@ -59,11 +66,9 @@ async function main() {
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
 
-  // setTimeout(async () => {
-  console.time('codebase-retrieval');
-  console.log(await search('thông tin dự án', 'D:\\projects\\research\\keep-going-mcp'));
-  console.timeEnd('codebase-retrieval');
-  // }, 2000);
+  // console.time('codebase-retrieval');
+  // console.log(await search('thông tin dự án', 'D:\\projects\\research\\keep-going-mcp'));
+  // console.timeEnd('codebase-retrieval');
 }
 
 main().catch((error) => {
