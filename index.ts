@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+import { existsSync, statSync } from 'node:fs';
+import { dirname } from 'node:path';
 import { FileSystemContext } from '@augmentcode/auggie-sdk';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
@@ -8,7 +10,7 @@ import { z } from 'zod';
 // Create MCP server
 const server = new McpServer({
   name: 'context-engine-mcp',
-  version: '0.0.3',
+  version: '0.0.5',
 });
 
 // Register context engine tool
@@ -23,7 +25,7 @@ server.registerTool(
        languages;\n5. Only reflects the current state of the codebase on the disk, and has no information on version control or code
        history.`,
     inputSchema: {
-      project_root: z.string().describe('The project root directory path'),
+      project_root: z.string().describe('The absolute project root directory path (full path, not relative)'),
       information_request: z.string().describe('A description of the information you need.'),
     },
   },
@@ -39,13 +41,41 @@ server.registerTool(
   },
 );
 
+/**
+ * Resolves the project root directory by checking if the path exists.
+ * If not, traverses up the directory tree (up to 3 levels) to find an existing parent directory.
+ * Throws an error if no existing directory is found.
+ */
+function resolveProjectRoot(projectRoot: string): string {
+  const maxTraversalLevels = 3;
+  let currentPath = projectRoot;
+
+  for (let level = 0; level < maxTraversalLevels; level++) {
+    if (existsSync(currentPath) && statSync(currentPath).isDirectory()) {
+      return currentPath;
+    }
+
+    const parentPath = dirname(currentPath);
+    // Stop if we've reached the root (parent is the same as current)
+    if (parentPath === currentPath) {
+      break;
+    }
+    currentPath = parentPath;
+  }
+
+  throw new Error(
+    `Project root directory not found. Checked "${projectRoot}" and up to ${maxTraversalLevels} parent directories. root: ${projectRoot}`,
+  );
+}
+
 async function search(query: string, projectRoot: string): Promise<string> {
   const maxAttempts = 3;
   let context: Awaited<ReturnType<typeof FileSystemContext.create>> | null = null;
 
   try {
+    const resolvedRoot = resolveProjectRoot(projectRoot);
     context = await FileSystemContext.create({
-      directory: projectRoot,
+      directory: resolvedRoot,
     });
 
     let results = '';
