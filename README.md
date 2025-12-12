@@ -5,13 +5,13 @@ A Model Context Protocol (MCP) server that exposes Augment Code's context engine
 ## Quick Start
 
 ```bash
-npx -y auggie-context-engine-mcp
+npx -y auggie-context-engine-mcp@latest
 ```
 
 Or with Bun:
 
 ```bash
-bunx auggie-context-engine-mcp
+bunx auggie-context-engine-mcp@latest
 ```
 
 ## What It Does
