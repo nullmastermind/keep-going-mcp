@@ -7,10 +7,13 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
+// Cache for FileSystemContext instances to prevent duplicate initialization errors
+const contextCache = new Map<string, Awaited<ReturnType<typeof FileSystemContext.create>>>();
+
 // Create MCP server
 const server = new McpServer({
   name: 'context-engine-mcp',
-  version: '0.0.5',
+  version: '0.0.6',
 });
 
 // Register context engine tool
@@ -25,7 +28,9 @@ server.registerTool(
        languages;\n5. Only reflects the current state of the codebase on the disk, and has no information on version control or code
        history.`,
     inputSchema: {
-      project_root: z.string().describe('The absolute project root directory path (full path, not relative)'),
+      project_root: z
+        .string()
+        .describe('The absolute project root directory path (full path, not relative)'),
       information_request: z.string().describe('A description of the information you need.'),
     },
   },
@@ -68,15 +73,31 @@ function resolveProjectRoot(projectRoot: string): string {
   );
 }
 
+/**
+ * Gets or creates a FileSystemContext for the given project directory.
+ * Caches contexts to prevent duplicate initialization errors.
+ */
+async function getOrCreateContext(
+  resolvedRoot: string,
+): Promise<Awaited<ReturnType<typeof FileSystemContext.create>>> {
+  const cached = contextCache.get(resolvedRoot);
+  if (cached) {
+    return cached;
+  }
+
+  const context = await FileSystemContext.create({
+    directory: resolvedRoot,
+  });
+  contextCache.set(resolvedRoot, context);
+  return context;
+}
+
 async function search(query: string, projectRoot: string): Promise<string> {
   const maxAttempts = 3;
-  let context: Awaited<ReturnType<typeof FileSystemContext.create>> | null = null;
 
   try {
     const resolvedRoot = resolveProjectRoot(projectRoot);
-    context = await FileSystemContext.create({
-      directory: resolvedRoot,
-    });
+    const context = await getOrCreateContext(resolvedRoot);
 
     let results = '';
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
@@ -92,24 +113,35 @@ async function search(query: string, projectRoot: string): Promise<string> {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     return `Error during codebase retrieval: ${errorMessage}`;
-  } finally {
-    if (context) {
-      await context.close();
-    }
   }
 }
 
-// Start both MCP server and Express server in parallel
+/**
+ * Closes all cached FileSystemContext instances to prevent memory leaks.
+ */
+async function closeAllContexts(): Promise<void> {
+  const closePromises = Array.from(contextCache.values()).map((context) => context.close());
+  await Promise.all(closePromises);
+  contextCache.clear();
+}
+
+// Start MCP server
 async function main() {
-  // Start MCP server with stdio transport
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.log('Context Engine MCP server is running...');
-
-  // console.time('codebase-retrieval');
-  // console.log(await search('thông tin dự án', 'D:\\projects\\research\\keep-going-mcp'));
-  // console.timeEnd('codebase-retrieval');
 }
+
+// Cleanup on process exit
+process.on('SIGINT', async () => {
+  await closeAllContexts();
+  process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+  await closeAllContexts();
+  process.exit(0);
+});
 
 main().catch((error) => {
   console.error('Server error:', error);
