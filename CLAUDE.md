@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a Model Context Protocol (MCP) server that wraps Augment Code's context engine, exposing it as a `codebase-retrieval` tool for AI assistants. The server uses `FileSystemContext` from `@augmentcode/auggie-sdk` to perform intelligent code retrieval across any project directory.
+This is a Model Context Protocol (MCP) server that enhances user prompts using Augment Code's context engine. The server uses `FileSystemContext` from `@augmentcode/auggie-sdk` to search the codebase and then uses `searchAndAsk` to generate enhanced, more specific versions of user prompts.
 
-**Package name**: `auggie-context-engine-mcp`
+**Package name**: `auggie-prompt-enhancer-mcp`
 
 ## Common Commands
 
@@ -43,16 +43,17 @@ bun run lint && bun run typecheck
 ### Entry Point (`index.ts`)
 Single-file MCP server implementation:
 - Creates an MCP server using `@modelcontextprotocol/sdk`
-- Registers the `codebase-retrieval` tool with Zod schema validation
+- Registers the `enhance-prompt` tool with Zod schema validation
 - Uses `StdioServerTransport` for communication with MCP clients
 
 ### Core Flow
-1. MCP client calls `codebase-retrieval` with `project_root` and `information_request` parameters
-2. Server creates a `FileSystemContext` instance for the specified project directory
-3. Calls `context.search(query)` to perform semantic code search
-4. **Retry logic**: Retries up to 3 times if the result doesn't contain `"Path:"` marker
-5. Returns the last result even if marker not found after all attempts
-6. Context is always closed in `finally` block to prevent resource leaks
+1. MCP client calls `enhance-prompt` with `project_root` and `user_request` parameters
+2. Server creates/retrieves a cached `FileSystemContext` instance for the specified project directory
+3. Builds an enhancement prompt instruction that guides the AI to rewrite the user's request
+4. Calls `context.searchAndAsk(userRequest, enhancementPrompt)` to search codebase and enhance the prompt
+5. **Retry logic**: Retries up to 3 times if the result doesn't contain `<enhanced-prompt>` tags
+6. Parses the enhanced prompt from XML tags using regex
+7. Returns the enhanced prompt or original request if parsing fails
 
 ### Key Implementation Details
 
@@ -61,23 +62,33 @@ Single-file MCP server implementation:
 const context = await FileSystemContext.create({
   directory: projectRoot,
 });
-const results = await context.search(query);
+const result = await context.searchAndAsk(userRequest, enhancementPrompt);
 await context.close();
 ```
 
-**Success Detection**: Results are considered successful when they contain the `"Path:"` marker. This indicates the retrieval found actual code snippets.
+**Enhancement Prompt**: The `buildEnhancementPrompt()` function creates an instruction that asks the AI to:
+- Analyze the original request for vague or ambiguous parts
+- Use codebase context to make the request more specific
+- Add relevant technical details (file names, function names, class names)
+- Maintain the original intent
+- Return the enhanced prompt in `<enhanced-prompt>` XML tags
+
+**Response Parsing**: Uses regex `/<enhanced-prompt>([\s\S]*?)<\/enhanced-prompt>/` to extract the enhanced prompt from the AI response.
 
 **Error Handling**: Errors are caught and returned as formatted error messages rather than throwing, ensuring MCP clients always receive a response.
 
 ## Special Logic & Patterns
 
 ### Retry Mechanism
-The `search()` function implements a retry pattern because Augment's context engine may occasionally return empty results on first attempt. The loop continues until:
-- Results contain `"Path:"` (success marker)
-- Maximum 3 attempts reached (returns last result regardless)
+The `enhancePrompt()` function implements a retry pattern because the AI may occasionally fail to include the XML tags. The loop continues until:
+- Results contain `<enhanced-prompt>` tag (success marker)
+- Maximum 3 attempts reached (returns parsed result regardless)
+
+### Context Caching
+`FileSystemContext` instances are cached by project root to prevent duplicate initialization errors and improve performance.
 
 ### Resource Cleanup
-`FileSystemContext` requires explicit cleanup via `context.close()`. This is handled in a `finally` block to ensure cleanup even on errors.
+`FileSystemContext` requires explicit cleanup via `context.close()`. Cached contexts are closed on process exit (SIGINT/SIGTERM).
 
 ## Linter Configuration
 

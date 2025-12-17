@@ -12,34 +12,33 @@ const contextCache = new Map<string, Awaited<ReturnType<typeof FileSystemContext
 
 // Create MCP server
 const server = new McpServer({
-  name: 'context-engine-mcp',
-  version: '0.0.6',
+  name: 'prompt-enhancer-mcp',
+  version: '0.0.1',
 });
 
-// Register context engine tool
+// Register prompt enhancer tool
 server.registerTool(
-  'codebase-retrieval',
+  'enhance-prompt',
   {
-    title: 'Codebase Retrieval',
-    description: `This tool is Augment's context engine, the world's best codebase context engine. It:\n1. Takes in a natural
-       language description of the code you are looking for;\n2. Uses a proprietary retrieval/embedding model suite that produces the
-       highest-quality recall of relevant code snippets from across the codebase;\n3. Maintains a real-time index of the codebase, so
-       the results are always up-to-date and reflects the current state of the codebase;\n4. Can retrieve across different programming
-       languages;\n5. Only reflects the current state of the codebase on the disk, and has no information on version control or code
-       history.`,
+    title: 'Enhance Prompt',
+    description: `This tool enhances user prompts using Augment's context engine. It:
+1. Takes a user request/prompt and searches the codebase for relevant context
+2. Uses AI to rewrite the prompt to be clearer, more specific, and less ambiguous
+3. Returns an enhanced version of the prompt with better context and specificity
+4. Helps improve prompt quality for better AI responses`,
     inputSchema: {
       project_root: z
         .string()
         .describe('The absolute project root directory path (full path, not relative)'),
-      information_request: z.string().describe('A description of the information you need.'),
+      user_request: z.string().describe('The user request/prompt to enhance.'),
     },
   },
-  async ({ project_root: projectRoot, information_request }) => {
+  async ({ project_root: projectRoot, user_request: userRequest }) => {
     return {
       content: [
         {
           type: 'text',
-          text: await search(information_request, projectRoot),
+          text: await enhancePrompt(userRequest, projectRoot),
         },
       ],
     };
@@ -92,27 +91,56 @@ async function getOrCreateContext(
   return context;
 }
 
-async function search(query: string, projectRoot: string): Promise<string> {
+// Regex for extracting enhanced prompt from AI response
+const ENHANCED_PROMPT_REGEX = /<enhanced-prompt>([\s\S]*?)<\/enhanced-prompt>/;
+
+function parseEnhancedPrompt(response: string): string | null {
+  const match = response.match(ENHANCED_PROMPT_REGEX);
+  if (match?.[1]) {
+    return match[1].trim();
+  }
+  return null;
+}
+
+async function enhancePrompt(userRequest: string, projectRoot: string): Promise<string> {
   const maxAttempts = 3;
 
   try {
     const resolvedRoot = resolveProjectRoot(projectRoot);
     const context = await getOrCreateContext(resolvedRoot);
 
-    let results = '';
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      results = await context.search(query);
+    // Build the enhancement instruction
+    const enhancementPrompt =
+      "Here is an instruction that I'd like to give you, but it needs to be improved. " +
+      'Rewrite and enhance this instruction to make it clearer, more specific, ' +
+      'less ambiguous, and correct any mistakes. ' +
+      'If there is code in triple backticks (```) consider whether it is a code sample and should remain unchanged. ' +
+      'Reply with the following format:\n\n' +
+      '### BEGIN RESPONSE ###\n' +
+      'Here is an enhanced version of the original instruction that is more specific and clear:\n' +
+      '<enhanced-prompt>enhanced prompt goes here</enhanced-prompt>\n\n' +
+      '### END RESPONSE ###\n\n' +
+      'Here is my original instruction:\n\n' +
+      userRequest;
 
-      if (results.includes('Path:')) {
-        return results;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      // Use searchAndAsk to get the enhancement with relevant codebase context
+      // The original prompt is used as the search query to find relevant code
+      const response = await context.searchAndAsk(userRequest, enhancementPrompt);
+
+      // console.log(response);
+
+      // Parse the enhanced prompt from the response
+      const enhanced = parseEnhancedPrompt(response);
+      if (enhanced) {
+        return enhanced;
       }
     }
 
-    // Return last result even if it doesn't contain "Path:"
-    return results;
+    throw new Error('Failed to parse enhanced prompt from response');
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    return `Error during codebase retrieval: ${errorMessage}`;
+    return `Error during prompt enhancement: ${errorMessage}`;
   }
 }
 
@@ -129,7 +157,20 @@ async function closeAllContexts(): Promise<void> {
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.log('Context Engine MCP server is running...');
+
+  // Test the enhancePrompt function
+  const testUserRequest = "thông tin dự án";
+  const testProjectRoot = "D:\\projects\\NodeJs\\keep-going-mcp";
+  console.log('Testing enhancePrompt with:', { userRequest: testUserRequest, projectRoot: testProjectRoot });
+  enhancePrompt(testUserRequest, testProjectRoot)
+    .then(result => {
+      console.log('Enhanced prompt result:', result);
+    })
+    .catch(error => {
+      console.error('Error testing enhancePrompt:', error);
+    });
+
+  console.log('Prompt Enhancer MCP server is running...');
 }
 
 // Cleanup on process exit

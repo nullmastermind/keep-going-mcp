@@ -1,32 +1,32 @@
-# Context Engine MCP
+# Prompt Enhancer MCP
 
-A Model Context Protocol (MCP) server that exposes Augment Code's context engine as a `codebase-retrieval` tool for AI assistants.
+A Model Context Protocol (MCP) server that enhances user prompts using Augment Code's context engine.
 
 ## Quick Start
 
 ```bash
-npx -y auggie-context-engine-mcp@latest
+npx -y auggie-prompt-enhancer-mcp@latest
 ```
 
 Or with Bun:
 
 ```bash
-bunx auggie-context-engine-mcp@latest
+bunx auggie-prompt-enhancer-mcp@latest
 ```
 
 ## What It Does
 
-This MCP server provides a `codebase-retrieval` tool that:
-- Takes a natural language description of the code you're looking for
-- Uses Augment's semantic search to find relevant code snippets
-- Returns code sections with file paths and line numbers
+This MCP server provides an `enhance-prompt` tool that:
+- Takes a user request/prompt and searches the codebase for relevant context
+- Uses AI to rewrite the prompt to be clearer, more specific, and less ambiguous
+- Returns an enhanced version of the prompt with better context and specificity
 
 ### Tool Parameters
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `project_root` | string | The project root directory path |
-| `information_request` | string | Natural language description of what you need |
+| `user_request` | string | The user request/prompt to enhance |
 
 ## MCP Server Configuration
 
@@ -34,9 +34,9 @@ This MCP server provides a `codebase-retrieval` tool that:
 
 ```json
 {
-  "context-engine-mcp-server": {
+  "prompt-enhancer-mcp-server": {
     "command": "bunx",
-    "args": ["auggie-context-engine-mcp"],
+    "args": ["auggie-prompt-enhancer-mcp"],
     "env": {}
   }
 }
@@ -54,9 +54,9 @@ Add to your `claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "context-engine-mcp-server": {
+    "prompt-enhancer-mcp-server": {
       "command": "bunx",
-      "args": ["auggie-context-engine-mcp"],
+      "args": ["auggie-prompt-enhancer-mcp"],
       "env": {}
     }
   }
