@@ -47,15 +47,32 @@ Single-file MCP server implementation:
 - Uses `StdioServerTransport` for communication with MCP clients
 
 ### Core Flow
-1. MCP client calls `enhance-prompt` with `project_root` and `user_request` parameters
+1. MCP client calls `enhance-prompt` with `project_root`, `user_request`, and optional `last_context` parameters
 2. Server creates/retrieves a cached `FileSystemContext` instance for the specified project directory
-3. Builds an enhancement prompt instruction that guides the AI to rewrite the user's request
-4. Calls `context.searchAndAsk(userRequest, enhancementPrompt)` to search codebase and enhance the prompt
-5. **Retry logic**: Retries up to 3 times if the result doesn't contain `<enhanced-prompt>` tags
-6. Parses the enhanced prompt from XML tags using regex
-7. Returns the enhanced prompt or original request if parsing fails
+3. Formats last context (if provided) into a context section
+4. Builds an enhancement prompt instruction that guides the AI to rewrite the user's request
+5. Calls `context.searchAndAsk(userRequest, enhancementPrompt)` to search codebase and enhance the prompt
+6. **Retry logic**: Retries up to 3 times if the result doesn't contain `<enhanced-prompt>` tags
+7. Parses the enhanced prompt from XML tags using regex
+8. Returns the enhanced prompt or original request if parsing fails
 
 ### Key Implementation Details
+
+**Input Schema**:
+```typescript
+inputSchema: {
+  project_root: z.string().describe('The absolute project root directory path'),
+  user_request: z.string().describe('The user request/prompt to enhance'),
+  last_context: z.string().optional().describe('Optional summary of previous conversation context'),
+}
+```
+
+**Last Context Format**: When provided, last context is formatted as:
+```
+### PREVIOUS CONTEXT ###
+<summary of what user was working on>
+### END PREVIOUS CONTEXT ###
+```
 
 **FileSystemContext Usage**:
 ```typescript

@@ -1,6 +1,6 @@
 {
   "name": "auggie-prompt-enhancer-mcp",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A Model Context Protocol server that enhances user prompts using Augment's context engine",
   "main": "dist/index.js",
   "module": "dist/index.js",

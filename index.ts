@@ -13,7 +13,7 @@ const contextCache = new Map<string, Awaited<ReturnType<typeof FileSystemContext
 // Create MCP server
 const server = new McpServer({
   name: 'prompt-enhancer-mcp',
-  version: '0.0.2',
+  version: '0.0.3',
 });
 
 // Register prompt enhancer tool
@@ -31,14 +31,20 @@ server.registerTool(
         .string()
         .describe('The absolute project root directory path (full path, not relative)'),
       user_request: z.string().describe('The user request/prompt to enhance.'),
+      last_context: z
+        .string()
+        .optional()
+        .describe(
+          'Optional summary of the previous conversation context to help understand what the user was working on',
+        ),
     },
   },
-  async ({ project_root: projectRoot, user_request: userRequest }) => {
+  async ({ project_root: projectRoot, user_request: userRequest, last_context: lastContext }) => {
     return {
       content: [
         {
           type: 'text',
-          text: await enhancePrompt(userRequest, projectRoot),
+          text: await enhancePrompt(userRequest, projectRoot, lastContext),
         },
       ],
     };
@@ -102,33 +108,54 @@ function parseEnhancedPrompt(response: string): string | null {
   return null;
 }
 
-async function enhancePrompt(userRequest: string, projectRoot: string): Promise<string> {
+/**
+ * Formats the last context summary into a string for inclusion in the enhancement prompt.
+ * Returns empty string if no context is provided.
+ */
+function formatLastContext(lastContext?: string): string {
+  if (!lastContext || lastContext.trim().length === 0) {
+    return '';
+  }
+
+  return `\n\n### PREVIOUS CONTEXT ###\n${lastContext.trim()}\n### END PREVIOUS CONTEXT ###\n`;
+}
+
+async function enhancePrompt(
+  userRequest: string,
+  projectRoot: string,
+  lastContext?: string,
+): Promise<string> {
   const maxAttempts = 3;
 
   try {
     const resolvedRoot = resolveProjectRoot(projectRoot);
     const context = await getOrCreateContext(resolvedRoot);
 
-    // Build the enhancement instruction
+    // Format last context if provided
+    const contextSection = formatLastContext(lastContext);
+
+    // Build the enhancement instruction with optional context
     const enhancementPrompt =
       "Here is an instruction that I'd like to give you, but it needs to be improved. " +
       'Rewrite and enhance this instruction to make it clearer, more specific, ' +
       'less ambiguous, and correct any mistakes. ' +
       'If there is code in triple backticks (```) consider whether it is a code sample and should remain unchanged. ' +
+      (lastContext
+        ? 'Use the provided previous context to better understand what the user was working on and add relevant details. '
+        : '') +
       'Reply with the following format:\n\n' +
       '### BEGIN RESPONSE ###\n' +
       'Here is an enhanced version of the original instruction that is more specific and clear:\n' +
       '<enhanced-prompt>enhanced prompt goes here</enhanced-prompt>\n\n' +
-      '### END RESPONSE ###\n\n' +
-      'Here is my original instruction:\n\n' +
+      '### END RESPONSE ###\n' +
+      contextSection +
+      '\nHere is my original instruction:\n\n' +
       userRequest;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       // Use searchAndAsk to get the enhancement with relevant codebase context
       // The original prompt is used as the search query to find relevant code
       const response = await context.searchAndAsk(userRequest, enhancementPrompt);
-
-      // console.log(response);
 
       // Parse the enhanced prompt from the response
       const enhanced = parseEnhancedPrompt(response);
