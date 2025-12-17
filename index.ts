@@ -13,7 +13,7 @@ const contextCache = new Map<string, Awaited<ReturnType<typeof FileSystemContext
 // Create MCP server
 const server = new McpServer({
   name: 'prompt-enhancer-mcp',
-  version: '0.0.1',
+  version: '0.0.2',
 });
 
 // Register prompt enhancer tool
