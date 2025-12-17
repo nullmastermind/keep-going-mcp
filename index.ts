@@ -159,18 +159,18 @@ async function main() {
   await server.connect(transport);
 
   // Test the enhancePrompt function
-  const testUserRequest = "thông tin dự án";
-  const testProjectRoot = "D:\\projects\\NodeJs\\keep-going-mcp";
-  console.log('Testing enhancePrompt with:', { userRequest: testUserRequest, projectRoot: testProjectRoot });
-  enhancePrompt(testUserRequest, testProjectRoot)
-    .then(result => {
-      console.log('Enhanced prompt result:', result);
-    })
-    .catch(error => {
-      console.error('Error testing enhancePrompt:', error);
-    });
+  // const testUserRequest = "thông tin dự án";
+  // const testProjectRoot = "D:\\projects\\NodeJs\\keep-going-mcp";
+  // console.log('Testing enhancePrompt with:', { userRequest: testUserRequest, projectRoot: testProjectRoot });
+  // enhancePrompt(testUserRequest, testProjectRoot)
+  //   .then(result => {
+  //     console.log('Enhanced prompt result:', result);
+  //   })
+  //   .catch(error => {
+  //     console.error('Error testing enhancePrompt:', error);
+  //   });
 
-  console.log('Prompt Enhancer MCP server is running...');
+  // console.log('Prompt Enhancer MCP server is running...');
 }
 
 // Cleanup on process exit
