@@ -73,3 +73,5 @@ cấu hình vào mcp:
 API_ENDPOINT có thể cấu hình qua env hoặc default 'https://customaugment.superclaude.dev/web-search'
 
 update npm ignore để tránh lộ source code
+
+update readme
