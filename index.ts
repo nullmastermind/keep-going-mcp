@@ -2,67 +2,39 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import TurndownService from 'turndown';
+import Turndown from 'turndown';
 import { z } from 'zod';
 
-function getApiKeys(): string[] {
-  const apiKeyEnv = process.env.SEARCHAPI_IO_API_KEY;
-  if (!apiKeyEnv) {
-    return [];
-  }
-  return apiKeyEnv
-    .split(',')
-    .map((key) => key.trim())
-    .filter((key) => key.length > 0);
+const API_ENDPOINT = 'https://customaugment.superclaude.dev/web-search';
+const DEFAULT_NUM_RESULTS = 5;
+const REQUEST_TIMEOUT_MS = 30000;
+
+interface ClaudeApiResponse {
+  tool_output: string;
+  tool_result_message: string;
+  is_error: boolean;
+  status: number;
 }
 
-async function searchWithRetry(query: string): Promise<unknown> {
-  const apiKeys = getApiKeys();
+async function webSearch(query: string, numResults: number): Promise<string> {
+  const response = await fetch(API_ENDPOINT, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, num_results: numResults }),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
 
-  if (apiKeys.length === 0) {
-    throw new Error(
-      'SEARCHAPI_IO_API_KEY environment variable is not set. Please configure at least one API key.',
-    );
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
   }
 
-  const usedKeys = new Set<string>();
-  const availableKeys = [...apiKeys];
+  const data = (await response.json()) as ClaudeApiResponse;
 
-  while (availableKeys.length > 0) {
-    const keyIndex = Math.floor(Math.random() * availableKeys.length);
-    const apiKey = availableKeys[keyIndex] as string;
-    availableKeys.splice(keyIndex, 1);
-    usedKeys.add(apiKey);
-
-    try {
-      const encodedQuery = encodeURIComponent(query);
-      const url = `https://www.searchapi.io/api/v1/search?engine=google_ai_mode&q=${encodedQuery}&api_key=${apiKey}`;
-
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        console.error(
-          `API key failed with status ${response.status}: ${apiKey.substring(0, 8)}...`,
-        );
-        continue;
-      }
-
-      const data = await response.json();
-
-      if (data && typeof data === 'object' && 'error' in data && data.error) {
-        console.error(`API key returned error: ${apiKey.substring(0, 8)}... - ${data.error}`);
-        continue;
-      }
-
-      return data;
-    } catch (error) {
-      console.error(
-        `API key encountered error: ${apiKey.substring(0, 8)}... - ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
+  if (data.is_error) {
+    throw new Error(data.tool_result_message || 'Search failed');
   }
 
-  throw new Error('All API keys failed. Please check your API keys and network connection.');
+  return data.tool_output;
 }
 
 async function fetchHtmlContent(url: string): Promise<{ html: string; status: number }> {
@@ -71,7 +43,7 @@ async function fetchHtmlContent(url: string): Promise<{ html: string; status: nu
       'User-Agent':
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
     },
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -83,7 +55,7 @@ async function fetchHtmlContent(url: string): Promise<{ html: string; status: nu
 }
 
 function convertHtmlToMarkdown(html: string): string {
-  const turndownService = new TurndownService({
+  const turndownService = new Turndown({
     headingStyle: 'atx',
     codeBlockStyle: 'fenced',
   });
@@ -94,8 +66,8 @@ function convertHtmlToMarkdown(html: string): string {
 }
 
 const server = new McpServer({
-  name: 'ai-search-mcp',
-  version: '1.0.0',
+  name: 'web-search-mcp',
+  version: '0.1.0',
 });
 
 server.registerTool(
@@ -103,24 +75,27 @@ server.registerTool(
   {
     title: 'Web Search',
     description:
-      'Search for content using AI-powered search that understands natural language queries. Does not require exact keyword matching - provide queries with sufficient context and the AI search engine will understand the intent. Natural language queries with context are preferred over strict keyword-based searches.',
+      'Search the web using Claude API. Returns markdown-formatted search results with relevant information from across the internet.',
     inputSchema: {
-      query: z
-        .string()
-        .describe(
-          'Natural language search query with context. The AI search engine will understand the intent and context without requiring exact keyword matching.',
-        ),
+      query: z.string().describe('The search query to send'),
+      num_results: z
+        .number()
+        .int()
+        .min(1)
+        .max(10)
+        .default(DEFAULT_NUM_RESULTS)
+        .describe('Number of results to return (1-10, default: 5)'),
     },
   },
-  async ({ query }) => {
+  async ({ query, num_results }) => {
     try {
-      const response = await searchWithRetry(query);
+      const result = await webSearch(query, num_results);
 
       return {
         content: [
           {
             type: 'text',
-            text: JSON.stringify(response, null, 2),
+            text: result,
           },
         ],
       };
@@ -209,7 +184,7 @@ server.registerTool(
 async function main() {
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  console.error('AI Search MCP server is running...');
+  console.error('Web Search MCP server is running...');
 }
 
 main().catch((error) => {
