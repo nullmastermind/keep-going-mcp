@@ -5,7 +5,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import Turndown from 'turndown';
 import { z } from 'zod';
 
-const API_ENDPOINT = 'https://customaugment.superclaude.dev/web-search';
+const API_ENDPOINT =
+  process.env.WEB_SEARCH_API_ENDPOINT || 'https://customaugment.superclaude.dev/web-search';
 const DEFAULT_NUM_RESULTS = 5;
 const REQUEST_TIMEOUT_MS = 30000;
 

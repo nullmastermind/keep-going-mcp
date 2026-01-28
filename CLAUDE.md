@@ -67,10 +67,13 @@ Single-file MCP server implementation:
 
 **Constants**:
 ```typescript
-const API_ENDPOINT = 'https://customaugment.superclaude.dev/web-search';
+const API_ENDPOINT = process.env.WEB_SEARCH_API_ENDPOINT || 'https://customaugment.superclaude.dev/web-search';
 const DEFAULT_NUM_RESULTS = 5;
 const REQUEST_TIMEOUT_MS = 30000;
 ```
+
+**Environment Variables**:
+- `WEB_SEARCH_API_ENDPOINT` (optional): Override the default web search API endpoint. Defaults to `https://customaugment.superclaude.dev/web-search` if not set.
 
 **Web Search Input Schema**:
 ```typescript
@@ -156,4 +159,10 @@ Uses Biome with:
 
 ## No Authentication Required
 
-The Claude API endpoint does not require API keys or authentication. No environment variables are needed for this server to function.
+The Claude API endpoint does not require API keys or authentication.
+
+## Environment Variables
+
+- `WEB_SEARCH_API_ENDPOINT` (optional): Override the default web search API endpoint. Defaults to `https://customaugment.superclaude.dev/web-search` if not set.
+
+See `.env.example` for configuration options.
